@@ -1,0 +1,6 @@
+[package]
+name = "brdgme"
+version = "0.1.0"
+authors = ["Michael Alexander"]
+
+[dependencies]
