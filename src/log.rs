@@ -1,5 +1,6 @@
 use time;
 
+#[derive(Debug)]
 pub struct Log {
     pub text: String,
     pub at: time::Tm,
