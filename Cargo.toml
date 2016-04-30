@@ -5,3 +5,4 @@ authors = ["Michael Alexander"]
 
 [dependencies]
 time = "0.1.35"
+nom = "1.2.2"
