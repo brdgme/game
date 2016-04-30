@@ -1,14 +1,14 @@
 use time;
 
-pub struct Log<'a> {
-    pub text: &'a str,
+pub struct Log {
+    pub text: String,
     pub at: time::Tm,
     pub public: bool,
     pub to: Vec<usize>,
 }
 
-impl<'a> Log<'a> {
-    pub fn public(text: &str) -> Log {
+impl Log {
+    pub fn public(text: String) -> Log {
         Log {
             text: text,
             at: time::now(),
@@ -17,7 +17,7 @@ impl<'a> Log<'a> {
         }
     }
 
-    pub fn private(text: &str, to: Vec<usize>) -> Log {
+    pub fn private(text: String, to: Vec<usize>) -> Log {
         Log {
             text: text,
             at: time::now(),
