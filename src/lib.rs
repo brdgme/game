@@ -7,5 +7,5 @@ pub mod game;
 pub mod log;
 mod markup;
 
-pub use game::Gamer;
+pub use game::{Gamer, Commander};
 pub use log::Log;
