@@ -1,8 +1,7 @@
 [package]
-name = "brdgme"
+name = "brdgme-game"
 version = "0.1.0"
 authors = ["Michael Alexander"]
 
 [dependencies]
-time = "0.1.35"
-nom = "1.2.2"
+time = "^0.1.35"
