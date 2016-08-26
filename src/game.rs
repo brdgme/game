@@ -28,7 +28,7 @@ pub trait Eliminator {
 }
 
 pub trait Commander {
-    fn command(&mut self, player: usize, input: &[u8]) -> Result<(Vec<Log>, &[u8]), GameError>;
+    fn command(&mut self, player: usize, input: &str) -> Result<Vec<Log>, GameError>;
 }
 
 pub trait PlayerRenderer {
