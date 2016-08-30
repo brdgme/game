@@ -5,5 +5,6 @@ pub mod error;
 pub mod game;
 pub mod log;
 
-pub use game::{Gamer, Commander};
+pub use game::{Gamer, Commander, Renderer};
+pub use error::GameError;
 pub use log::Log;
