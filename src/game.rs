@@ -1,6 +1,7 @@
 use log::Log;
 
 use ::error::GameError;
+use brdgme_markup::ast::Node;
 
 pub trait Gamer {
     fn start(&mut self, players: usize) -> Result<Vec<Log>, GameError>;
@@ -31,8 +32,8 @@ pub trait Commander {
     fn command(&mut self, player: usize, input: &str) -> Result<Vec<Log>, GameError>;
 }
 
-pub trait PlayerRenderer {
-    fn render_for_player(&self, player: usize) -> Result<String, GameError>;
+pub trait Renderer {
+    fn render(&self, player: Option<usize>) -> Result<Vec<Node>, GameError>;
 }
 
 #[test]

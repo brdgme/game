@@ -1,4 +1,5 @@
 extern crate time;
+extern crate brdgme_markup;
 
 pub mod error;
 pub mod game;

@@ -5,3 +5,4 @@ authors = ["Michael Alexander"]
 
 [dependencies]
 time = "^0.1.35"
+brdgme-markup = { path = "../markup" }
