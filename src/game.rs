@@ -32,7 +32,7 @@ pub trait Commander {
     fn command(&mut self,
                player: usize,
                input: &str,
-               players: &Vec<&str>)
+               players: &Vec<String>)
                -> Result<Vec<Log>, GameError>;
 }
 
