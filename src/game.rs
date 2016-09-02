@@ -10,9 +10,10 @@ pub trait Gamer {
     fn whose_turn(&self) -> Vec<usize>;
 
     fn assert_not_finished(&self) -> Result<(), GameError> {
-        match self.is_finished() {
-            true => Err(GameError::Finished),
-            false => Ok(()),
+        if self.is_finished() {
+            Err(GameError::Finished)
+        } else {
+            Ok(())
         }
     }
 
@@ -32,7 +33,7 @@ pub trait Commander {
     fn command(&mut self,
                player: usize,
                input: &str,
-               players: &Vec<String>)
+               players: &[String])
                -> Result<Vec<Log>, GameError>;
 }
 
