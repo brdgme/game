@@ -34,7 +34,7 @@ pub trait Commander {
                player: usize,
                input: &str,
                players: &[String])
-               -> Result<Vec<Log>, GameError>;
+               -> Result<(Vec<Log>, String), GameError>;
 }
 
 pub trait Renderer {
