@@ -1,13 +1,17 @@
 use log::Log;
+use serde::Serialize;
 
 use ::error::GameError;
 use brdgme_markup::ast::Node;
 
 pub trait Gamer {
+    type PlayerState: Serialize;
+
     fn start(&mut self, players: usize) -> Result<Vec<Log>, GameError>;
     fn is_finished(&self) -> bool;
     fn winners(&self) -> Vec<usize>;
     fn whose_turn(&self) -> Vec<usize>;
+    fn player_state(&self, player: Option<usize>) -> Self::PlayerState;
 
     fn assert_not_finished(&self) -> Result<(), GameError> {
         if self.is_finished() {
