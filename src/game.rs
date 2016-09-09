@@ -5,13 +5,18 @@ use ::error::GameError;
 use brdgme_markup::ast::Node;
 
 pub trait Gamer {
-    type PlayerState: Serialize;
+    type PlayerState: Serialize + Renderer;
 
     fn start(&mut self, players: usize) -> Result<Vec<Log>, GameError>;
     fn is_finished(&self) -> bool;
     fn winners(&self) -> Vec<usize>;
     fn whose_turn(&self) -> Vec<usize>;
     fn player_state(&self, player: Option<usize>) -> Self::PlayerState;
+    fn command(&mut self,
+               player: usize,
+               input: &str,
+               players: &[String])
+               -> Result<(Vec<Log>, String), GameError>;
 
     fn assert_not_finished(&self) -> Result<(), GameError> {
         if self.is_finished() {
@@ -27,22 +32,14 @@ pub trait Gamer {
             None => Err(GameError::NotYourTurn),
         }
     }
-}
 
-pub trait Eliminator {
-    fn eliminated(&self) -> Vec<usize>;
-}
-
-pub trait Commander {
-    fn command(&mut self,
-               player: usize,
-               input: &str,
-               players: &[String])
-               -> Result<(Vec<Log>, String), GameError>;
+    fn eliminated(&self) -> Vec<usize> {
+        vec![]
+    }
 }
 
 pub trait Renderer {
-    fn render(&self, player: Option<usize>) -> Result<Vec<Node>, GameError>;
+    fn render(&self) -> Vec<Node>;
 }
 
 #[test]
