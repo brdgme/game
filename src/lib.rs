@@ -1,6 +1,7 @@
 extern crate time;
 extern crate brdgme_markup;
 extern crate serde;
+extern crate combine;
 
 pub mod error;
 pub mod game;
