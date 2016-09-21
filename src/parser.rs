@@ -15,12 +15,11 @@ pub fn match_first<'a, T>(needle: &str,
                           haystack: &'a HashMap<&str, T>)
                           -> Result<&'a T, GameError> {
     let lower_needle = needle.to_lowercase();
-    let matching = || {
-        haystack.iter()
-            .filter(|&(key, _)| key.to_lowercase().starts_with(&lower_needle))
-    };
-    match matching().count() {
-        1 => Ok(matching().nth(0).unwrap().1),
+    let matching = haystack.iter()
+        .filter(|&(key, _)| key.to_lowercase().starts_with(&lower_needle))
+        .collect::<Vec<(&&str, &T)>>();
+    match matching.len() {
+        1 => Ok(matching[0].1),
         0 => Err(GameError::InvalidInput("Couldn't find any matching options".to_string())),
         _ => Err(GameError::InvalidInput("Ambiguous".to_string())),
     }
