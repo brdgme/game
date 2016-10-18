@@ -5,13 +5,13 @@ use ::error::GameError;
 use brdgme_markup::ast::Node;
 
 pub trait Gamer {
-    type PlayerState: Serialize + Renderer;
+    type PubState: Serialize + Renderer;
 
     fn start(&mut self, players: usize) -> Result<Vec<Log>, GameError>;
     fn is_finished(&self) -> bool;
     fn winners(&self) -> Vec<usize>;
     fn whose_turn(&self) -> Vec<usize>;
-    fn player_state(&self, player: Option<usize>) -> Self::PlayerState;
+    fn pub_state(&self, player: Option<usize>) -> Self::PubState;
     fn command(&mut self,
                player: usize,
                input: &str,
