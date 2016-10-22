@@ -7,4 +7,4 @@ authors = ["Michael Alexander <beefsack@gmail.com>"]
 time = "^0.1.35"
 serde = "^0.8.10"
 brdgme-markup = { path = "../markup" }
-combine = { git = "https://github.com/Marwes/combine.git" }
+combine = "^2.0.0"
