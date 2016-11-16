@@ -1,11 +1,25 @@
-use combine::{ParseError, Stream};
-use combine::primitives::Error;
+use combine::{Parser, ParseError, Stream, parser};
+use combine::primitives::{Error, ParseResult};
+use combine::combinator::{FnParser, satisfy, try, many1};
 
 use std::ascii::AsciiExt;
 use std::fmt::{Display, Write};
 use std::collections::HashMap;
 
 use error::GameError;
+
+type FnP<T, I> = FnParser<I, fn(I) -> ParseResult<T, I>>;
+
+pub fn non_spaces<I>() -> FnP<String, I>
+    where I: Stream<Item = char>
+{
+    fn non_spaces_<I>(input: I) -> ParseResult<String, I>
+        where I: Stream<Item = char>
+    {
+        try(many1(satisfy(|c: char| !c.is_whitespace()))).parse_stream(input)
+    }
+    parser(non_spaces_)
+}
 
 pub fn cmp_ignore_case(l: char, r: char) -> bool {
     l.eq_ignore_ascii_case(&r)
@@ -85,6 +99,7 @@ pub fn to_game_error<S>(err: ParseError<S>) -> GameError
 mod test {
     use super::*;
     use std::collections::HashMap;
+    use combine::Parser;
     use ::GameError;
 
     #[test]
@@ -98,5 +113,11 @@ mod test {
                    match_first("egg", &hm));
         assert_eq!(Err(GameError::InvalidInput("Couldn't find any matching options".to_string())),
                    match_first("bacon", &hm));
+    }
+
+    #[test]
+    fn non_spaces_works() {
+        assert_eq!(non_spaces().parse("egg bacon cheese"),
+                   Ok(("egg".to_string(), " bacon cheese")));
     }
 }
