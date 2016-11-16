@@ -42,8 +42,9 @@ pub fn cmp_ignore_case(l: char, r: char) -> bool {
     l.eq_ignore_ascii_case(&r)
 }
 
-pub fn match_first<'a, S, I, T>(needle: S, haystack: I) -> Result<&'a T, GameError>
+pub fn match_first<'a, N, S, I, T>(needle: N, haystack: I) -> Result<&'a T, GameError>
     where S: 'a + Into<String> + Clone,
+          N: Into<String>,
           T: Clone,
           I: Iterator<Item = &'a (S, T)>
 {
