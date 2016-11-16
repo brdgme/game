@@ -4,7 +4,6 @@ use combine::combinator::{FnParser, satisfy, many, many1, between, none_of, toke
 
 use std::ascii::AsciiExt;
 use std::fmt::{Display, Write};
-use std::collections::HashMap;
 
 use error::GameError;
 
@@ -43,15 +42,17 @@ pub fn cmp_ignore_case(l: char, r: char) -> bool {
     l.eq_ignore_ascii_case(&r)
 }
 
-pub fn match_first<'a, T>(needle: &str,
-                          haystack: &'a HashMap<&str, T>)
-                          -> Result<&'a T, GameError> {
-    let lower_needle = needle.to_lowercase();
-    let matching = haystack.iter()
-        .filter(|&(key, _)| key.to_lowercase().starts_with(&lower_needle))
-        .collect::<Vec<(&&str, &T)>>();
+pub fn match_first<'a, S, I, T>(needle: S, haystack: I) -> Result<&'a T, GameError>
+    where S: 'a + Into<String> + Clone,
+          T: Clone,
+          I: Iterator<Item = &'a (S, T)>
+{
+    let lower_needle = needle.into().to_lowercase();
+    let matching =
+        haystack.filter(|&&(ref key, _)| key.to_owned().into().to_lowercase().starts_with(&lower_needle))
+            .collect::<Vec<&'a (S, T)>>();
     match matching.len() {
-        1 => Ok(matching[0].1),
+        1 => Ok(&matching[0].1),
         0 => Err(GameError::InvalidInput("Couldn't find any matching options".to_string())),
         _ => Err(GameError::InvalidInput("Ambiguous".to_string())),
     }
@@ -116,21 +117,18 @@ pub fn to_game_error<S>(err: ParseError<S>) -> GameError
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::collections::HashMap;
     use combine::{Parser, parser};
     use ::GameError;
 
     #[test]
     fn match_first_works() {
-        let mut hm = HashMap::new();
-        hm.insert("EGGBACON", 1);
-        hm.insert("EGGcheese", 2);
-        assert_eq!(Ok(&1), match_first("eggb", &hm));
-        assert_eq!(Ok(&2), match_first("eggc", &hm));
+        let hay: Vec<(&'static str, usize)> = vec![("EGGBACON", 1), ("EGGcheese", 2)];
+        assert_eq!(Ok(&1), match_first("eggb", hay.iter()));
+        assert_eq!(Ok(&2), match_first("eggc", hay.iter()));
         assert_eq!(Err(GameError::InvalidInput("Ambiguous".to_string())),
-                   match_first("egg", &hm));
+                   match_first("egg", hay.iter()));
         assert_eq!(Err(GameError::InvalidInput("Couldn't find any matching options".to_string())),
-                   match_first("bacon", &hm));
+                   match_first("bacon", hay.iter()));
     }
 
     #[test]
