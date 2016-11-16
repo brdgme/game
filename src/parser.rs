@@ -1,6 +1,6 @@
 use combine::{Parser, ParseError, Stream, parser};
 use combine::primitives::{Error, ParseResult};
-use combine::combinator::{FnParser, satisfy, many1};
+use combine::combinator::{FnParser, satisfy, many, many1, between, none_of, token, choice};
 
 use std::ascii::AsciiExt;
 use std::fmt::{Display, Write};
@@ -10,15 +10,33 @@ use error::GameError;
 
 type FnP<T, I> = FnParser<I, fn(I) -> ParseResult<T, I>>;
 
-pub fn non_spaces<I>() -> FnP<String, I>
+pub fn arg<I>() -> FnP<String, I>
     where I: Stream<Item = char>
 {
-    fn non_spaces_<I>(input: I) -> ParseResult<String, I>
+    fn arg_<I>(input: I) -> ParseResult<String, I>
         where I: Stream<Item = char>
     {
-        many1(satisfy(|c: char| !c.is_whitespace())).parse_stream(input)
+        choice([quoted_single, quoted_double, non_spaces]).parse_stream(input)
     }
-    parser(non_spaces_)
+    parser(arg_)
+}
+
+pub fn quoted_single<I>(input: I) -> ParseResult<String, I>
+    where I: Stream<Item = char>
+{
+    between(token('\''), token('\''), many(none_of(vec!['\'']))).parse_stream(input)
+}
+
+pub fn quoted_double<I>(input: I) -> ParseResult<String, I>
+    where I: Stream<Item = char>
+{
+    between(token('"'), token('"'), many(none_of(vec!['"']))).parse_stream(input)
+}
+
+pub fn non_spaces<I>(input: I) -> ParseResult<String, I>
+    where I: Stream<Item = char>
+{
+    many1(satisfy(|c: char| !c.is_whitespace())).parse_stream(input)
 }
 
 pub fn cmp_ignore_case(l: char, r: char) -> bool {
@@ -99,7 +117,7 @@ pub fn to_game_error<S>(err: ParseError<S>) -> GameError
 mod test {
     use super::*;
     use std::collections::HashMap;
-    use combine::Parser;
+    use combine::{Parser, parser};
     use ::GameError;
 
     #[test]
@@ -117,9 +135,31 @@ mod test {
 
     #[test]
     fn non_spaces_works() {
-        assert_eq!(non_spaces().parse("egg bacon cheese"),
+        assert_eq!(parser(non_spaces).parse("egg bacon cheese"),
                    Ok(("egg".to_string(), " bacon cheese")));
-        assert_eq!(non_spaces().parse("egg\nbacon cheese"),
+        assert_eq!(parser(non_spaces).parse("egg\nbacon cheese"),
                    Ok(("egg".to_string(), "\nbacon cheese")));
+    }
+
+    #[test]
+    fn quoted_single_works() {
+        assert_eq!(parser(quoted_single).parse("'egg bacon 'cheese"),
+                   Ok(("egg bacon ".to_string(), "cheese")));
+    }
+
+    #[test]
+    fn quoted_double_works() {
+        assert_eq!(parser(quoted_double).parse("\"egg bacon \"cheese"),
+                   Ok(("egg bacon ".to_string(), "cheese")));
+    }
+
+    #[test]
+    fn arg_works() {
+        assert_eq!(arg().parse("egg bacon cheese"),
+                   Ok(("egg".to_string(), " bacon cheese")));
+        assert_eq!(arg().parse("'egg bacon 'cheese"),
+                   Ok(("egg bacon ".to_string(), "cheese")));
+        assert_eq!(arg().parse("\"egg bacon \"cheese"),
+                   Ok(("egg bacon ".to_string(), "cheese")));
     }
 }
