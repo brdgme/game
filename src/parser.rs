@@ -1,6 +1,6 @@
 use combine::{Parser, ParseError, Stream, parser};
 use combine::primitives::{Error, ParseResult};
-use combine::combinator::{FnParser, satisfy, try, many1};
+use combine::combinator::{FnParser, satisfy, many1};
 
 use std::ascii::AsciiExt;
 use std::fmt::{Display, Write};
@@ -16,7 +16,7 @@ pub fn non_spaces<I>() -> FnP<String, I>
     fn non_spaces_<I>(input: I) -> ParseResult<String, I>
         where I: Stream<Item = char>
     {
-        try(many1(satisfy(|c: char| !c.is_whitespace()))).parse_stream(input)
+        many1(satisfy(|c: char| !c.is_whitespace())).parse_stream(input)
     }
     parser(non_spaces_)
 }
@@ -119,5 +119,7 @@ mod test {
     fn non_spaces_works() {
         assert_eq!(non_spaces().parse("egg bacon cheese"),
                    Ok(("egg".to_string(), " bacon cheese")));
+        assert_eq!(non_spaces().parse("egg\nbacon cheese"),
+                   Ok(("egg".to_string(), "\nbacon cheese")));
     }
 }
