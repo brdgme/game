@@ -1,4 +1,4 @@
-extern crate time;
+extern crate chrono;
 extern crate brdgme_markup;
 extern crate serde;
 extern crate combine;

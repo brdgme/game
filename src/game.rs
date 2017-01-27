@@ -1,7 +1,7 @@
 use log::Log;
 use serde::Serialize;
 
-use ::error::GameError;
+use error::GameError;
 use brdgme_markup::ast::Node;
 
 pub trait Gamer {

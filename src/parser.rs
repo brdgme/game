@@ -49,7 +49,9 @@ pub fn match_first<'a, N, S, I, T>(needle: N, haystack: I) -> Result<&'a T, Game
 {
     let lower_needle = needle.into().to_lowercase();
     let matching =
-        haystack.filter(|&&(ref key, _)| key.to_owned().into().to_lowercase().starts_with(&lower_needle))
+        haystack.filter(|&&(ref key, _)| {
+                key.to_owned().into().to_lowercase().starts_with(&lower_needle)
+            })
             .collect::<Vec<&'a (S, T)>>();
     match matching.len() {
         1 => Ok(&matching[0].1),
@@ -70,11 +72,9 @@ pub fn to_game_error<S>(err: ParseError<S>) -> GameError
     // Output messages if there are any.
     for message in err.errors
         .iter()
-        .filter(|e| {
-            match **e {
-                Error::Message(_) => true,
-                _ => false,
-            }
+        .filter(|e| match **e {
+            Error::Message(_) => true,
+            _ => false,
         }) {
         writeln!(s, "{}", message).unwrap();
         written = true;
@@ -87,11 +87,9 @@ pub fn to_game_error<S>(err: ParseError<S>) -> GameError
     let expected = || {
         err.errors
             .iter()
-            .filter_map(|e| {
-                match *e {
-                    Error::Expected(ref ee) => Some(ee),
-                    _ => None,
-                }
+            .filter_map(|e| match *e {
+                Error::Expected(ref ee) => Some(ee),
+                _ => None,
             })
     };
     let expected_count = expected().count();
@@ -118,7 +116,7 @@ pub fn to_game_error<S>(err: ParseError<S>) -> GameError
 mod test {
     use super::*;
     use combine::{Parser, parser};
-    use ::GameError;
+    use GameError;
 
     #[test]
     fn match_first_works() {

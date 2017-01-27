@@ -4,7 +4,8 @@ version = "0.1.0"
 authors = ["Michael Alexander <beefsack@gmail.com>"]
 
 [dependencies]
-time = "^0.1.35"
-serde = "^0.8.10"
+chrono = "0.2.25"
+serde = "0.9.0-rc2"
+combine = "2.1"
+brdgme-std = { path = "../std" }
 brdgme-markup = { path = "../markup" }
-combine = "^2.0.0"
