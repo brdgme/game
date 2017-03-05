@@ -2,7 +2,7 @@ use log::Log;
 use serde::Serialize;
 
 use error::GameError;
-use brdgme_markup::ast::Node;
+use brdgme_markup::Node;
 
 pub trait Gamer {
     type PubState: Serialize + Renderer;

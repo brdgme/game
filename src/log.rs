@@ -1,6 +1,6 @@
 use chrono::{DateTime, UTC};
 
-use brdgme_markup::ast::Node;
+use brdgme_markup::Node;
 
 #[derive(Debug)]
 pub struct Log {
