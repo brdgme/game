@@ -60,7 +60,7 @@ pub fn match_first<'a, N, S, I, T>(needle: N, haystack: I) -> Result<&'a T, Game
     }
 }
 
-pub fn to_game_error<S>(err: ParseError<S>) -> GameError
+pub fn to_game_error<S>(err: &ParseError<S>) -> GameError
     where S: Stream,
           S::Item: Display,
           S::Range: Display,
