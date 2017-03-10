@@ -48,11 +48,13 @@ pub fn match_first<'a, N, S, I, T>(needle: N, haystack: I) -> Result<&'a T, Game
           I: Iterator<Item = &'a (S, T)>
 {
     let lower_needle = needle.into().to_lowercase();
-    let matching =
-        haystack.filter(|&&(ref key, _)| {
-                key.to_owned().into().to_lowercase().starts_with(&lower_needle)
-            })
-            .collect::<Vec<&'a (S, T)>>();
+    let matching = haystack.filter(|&&(ref key, _)| {
+                                       key.to_owned()
+                                           .into()
+                                           .to_lowercase()
+                                           .starts_with(&lower_needle)
+                                   })
+        .collect::<Vec<&'a (S, T)>>();
     match matching.len() {
         1 => Ok(&matching[0].1),
         0 => Err(GameError::InvalidInput("Couldn't find any matching options".to_string())),
@@ -70,12 +72,10 @@ pub fn to_game_error<S>(err: &ParseError<S>) -> GameError
     let mut written = false;
 
     // Output messages if there are any.
-    for message in err.errors
-        .iter()
-        .filter(|e| match **e {
-            Error::Message(_) => true,
-            _ => false,
-        }) {
+    for message in err.errors.iter().filter(|e| match **e {
+                                                Error::Message(_) => true,
+                                                _ => false,
+                                            }) {
         writeln!(s, "{}", message).unwrap();
         written = true;
     }
@@ -85,12 +85,10 @@ pub fn to_game_error<S>(err: &ParseError<S>) -> GameError
 
     // Output expected if there are any.
     let expected = || {
-        err.errors
-            .iter()
-            .filter_map(|e| match *e {
-                Error::Expected(ref ee) => Some(ee),
-                _ => None,
-            })
+        err.errors.iter().filter_map(|e| match *e {
+                                         Error::Expected(ref ee) => Some(ee),
+                                         _ => None,
+                                     })
     };
     let expected_count = expected().count();
     for (i, err_message) in expected().enumerate() {
@@ -102,7 +100,7 @@ pub fn to_game_error<S>(err: &ParseError<S>) -> GameError
                    _ => " or",
                },
                err_message)
-            .unwrap();
+                .unwrap();
         written = true;
     }
     if written {

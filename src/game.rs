@@ -4,10 +4,10 @@ use serde::Serialize;
 use error::GameError;
 use brdgme_markup::Node;
 
-pub trait Gamer {
+pub trait Gamer: Sized {
     type PubState: Serialize + Renderer;
 
-    fn start(&mut self, players: usize) -> Result<Vec<Log>, GameError>;
+    fn new(players: usize) -> Result<(Self, Vec<Log>), GameError>;
     fn is_finished(&self) -> bool;
     fn winners(&self) -> Vec<usize>;
     fn whose_turn(&self) -> Vec<usize>;
