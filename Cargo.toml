@@ -8,4 +8,5 @@ brdgme-std = { git = "https://github.com/brdgme/std.git" }
 brdgme-markup = { git = "https://github.com/brdgme/markup.git" }
 chrono = "*"
 serde = "*"
+serde_derive = "*"
 combine = "*"
