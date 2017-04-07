@@ -4,7 +4,7 @@ use serde::Serialize;
 use error::GameError;
 use brdgme_markup::Node;
 
-#[derive(Clone, PartialEq, Debug, Serialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Status {
     Active {
         whose_turn: Vec<usize>,
