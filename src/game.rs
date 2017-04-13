@@ -1,8 +1,19 @@
 use log::Log;
 use serde::Serialize;
 
-use error::GameError;
 use brdgme_markup::Node;
+
+use std::collections::{HashSet, HashMap};
+
+use error::GameError;
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub enum Stat {
+    Int(i32),
+    Float(f32),
+    Set(HashSet<String>),
+    Fraction(i32, i32),
+}
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Status {
@@ -10,7 +21,17 @@ pub enum Status {
         whose_turn: Vec<usize>,
         eliminated: Vec<usize>,
     },
-    Finished { winners: Vec<usize> },
+    Finished {
+        winners: Vec<usize>,
+        stats: Vec<HashMap<String, Stat>>,
+    },
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct CommandResponse {
+    pub logs: Vec<Log>,
+    pub can_undo: bool,
+    pub remaining_input: String,
 }
 
 pub trait Gamer: Sized {
@@ -22,7 +43,7 @@ pub trait Gamer: Sized {
                player: usize,
                input: &str,
                players: &[String])
-               -> Result<(Vec<Log>, String), GameError>;
+               -> Result<CommandResponse, GameError>;
     fn status(&self) -> Status;
 
     fn is_finished(&self) -> bool {
@@ -48,7 +69,14 @@ pub trait Gamer: Sized {
 
     fn winners(&self) -> Vec<usize> {
         match self.status() {
-            Status::Finished { winners: w } => w,
+            Status::Finished { winners, .. } => winners,
+            _ => vec![],
+        }
+    }
+
+    fn stats(&self) -> Vec<HashMap<String, Stat>> {
+        match self.status() {
+            Status::Finished { stats, .. } => stats,
             _ => vec![],
         }
     }

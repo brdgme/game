@@ -2,7 +2,7 @@ use chrono::{NaiveDateTime, UTC};
 
 use brdgme_markup::Node;
 
-#[derive(Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Log {
     pub content: Vec<Node>,
     pub at: NaiveDateTime,
