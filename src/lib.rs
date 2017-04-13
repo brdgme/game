@@ -12,5 +12,5 @@ pub mod log;
 pub mod parser;
 pub mod errors;
 
-pub use game::{Gamer, Renderer, Status, CommandResponse};
+pub use game::{Gamer, Renderer, Status, CommandResponse, Stat};
 pub use log::Log;
