@@ -5,7 +5,7 @@ use brdgme_markup::Node;
 
 use std::collections::{HashSet, HashMap};
 
-use error::GameError;
+use errors::*;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Stat {
@@ -37,13 +37,13 @@ pub struct CommandResponse {
 pub trait Gamer: Sized {
     type PubState: Serialize + Renderer;
 
-    fn new(players: usize) -> Result<(Self, Vec<Log>), GameError>;
+    fn new(players: usize) -> Result<(Self, Vec<Log>)>;
     fn pub_state(&self, player: Option<usize>) -> Self::PubState;
     fn command(&mut self,
                player: usize,
                input: &str,
                players: &[String])
-               -> Result<CommandResponse, GameError>;
+               -> Result<CommandResponse>;
     fn status(&self) -> Status;
 
     fn is_finished(&self) -> bool {
@@ -81,18 +81,18 @@ pub trait Gamer: Sized {
         }
     }
 
-    fn assert_not_finished(&self) -> Result<(), GameError> {
+    fn assert_not_finished(&self) -> Result<()> {
         if self.is_finished() {
-            Err(GameError::Finished)
+            Err(ErrorKind::Finished.into())
         } else {
             Ok(())
         }
     }
 
-    fn assert_player_turn(&self, player: usize) -> Result<(), GameError> {
+    fn assert_player_turn(&self, player: usize) -> Result<()> {
         match self.whose_turn().iter().position(|&p| p == player) {
             Some(_) => Ok(()),
-            None => Err(GameError::NotYourTurn),
+            None => Err(ErrorKind::NotYourTurn.into()),
         }
     }
 }

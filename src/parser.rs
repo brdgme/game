@@ -5,7 +5,7 @@ use combine::combinator::{FnParser, satisfy, many, many1, between, none_of, toke
 use std::ascii::AsciiExt;
 use std::fmt::{Display, Write};
 
-use error::GameError;
+use errors::*;
 
 type FnP<T, I> = FnParser<I, fn(I) -> ParseResult<T, I>>;
 
@@ -42,7 +42,7 @@ pub fn cmp_ignore_case(l: char, r: char) -> bool {
     l.eq_ignore_ascii_case(&r)
 }
 
-pub fn match_first<'a, N, S, I, T>(needle: N, haystack: I) -> Result<&'a T, GameError>
+pub fn match_first<'a, N, S, I, T>(needle: N, haystack: I) -> Result<&'a T>
     where S: 'a + Into<String> + Clone,
           N: Into<String>,
           I: Iterator<Item = &'a (S, T)>
@@ -58,12 +58,12 @@ pub fn match_first<'a, N, S, I, T>(needle: N, haystack: I) -> Result<&'a T, Game
         .collect::<Vec<&'a (S, T)>>();
     match matching.len() {
         1 => Ok(&matching[0].1),
-        0 => Err(GameError::InvalidInput("Couldn't find any matching options".to_string())),
-        _ => Err(GameError::InvalidInput("Ambiguous".to_string())),
+        0 => Err(ErrorKind::InvalidInput("Couldn't find any matching options".to_string()).into()),
+        _ => Err(ErrorKind::InvalidInput("Ambiguous".to_string()).into()),
     }
 }
 
-pub fn to_game_error<S>(err: &ParseError<S>) -> GameError
+pub fn to_game_error<S>(err: &ParseError<S>) -> ErrorKind
     where S: Stream,
           S::Item: Display,
           S::Range: Display,
@@ -83,7 +83,7 @@ pub fn to_game_error<S>(err: &ParseError<S>) -> GameError
         written = true;
     }
     if written {
-        return GameError::InvalidInput(s);
+        return ErrorKind::InvalidInput(s);
     }
 
     // Output expected if there are any.
@@ -109,27 +109,26 @@ pub fn to_game_error<S>(err: &ParseError<S>) -> GameError
         written = true;
     }
     if written {
-        return GameError::InvalidInput(s);
+        return ErrorKind::InvalidInput(s);
     }
 
-    GameError::InvalidInput("Invalid input".to_string())
+    ErrorKind::InvalidInput("Invalid input".to_string())
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
     use combine::{Parser, parser};
-    use GameError;
 
     #[test]
     fn match_first_works() {
         let hay: Vec<(&'static str, usize)> = vec![("EGGBACON", 1), ("EGGcheese", 2)];
-        assert_eq!(Ok(&1), match_first("eggb", hay.iter()));
-        assert_eq!(Ok(&2), match_first("eggc", hay.iter()));
-        assert_eq!(Err(GameError::InvalidInput("Ambiguous".to_string())),
-                   match_first("egg", hay.iter()));
-        assert_eq!(Err(GameError::InvalidInput("Couldn't find any matching options".to_string())),
-                   match_first("bacon", hay.iter()));
+        assert_eq!(&1,
+                   match_first("eggb", hay.iter()).expect("error matching eggb"));
+        assert_eq!(&2,
+                   match_first("eggc", hay.iter()).expect("error matching eggc"));
+        assert!(match_first("egg", hay.iter()).is_err());
+        assert!(match_first("bacon", hay.iter()).is_err());
     }
 
     #[test]

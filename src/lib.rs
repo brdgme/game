@@ -4,12 +4,13 @@ extern crate brdgme_markup;
 extern crate serde_derive;
 extern crate serde;
 extern crate combine;
+#[macro_use]
+extern crate error_chain;
 
-pub mod error;
 pub mod game;
 pub mod log;
 pub mod parser;
+pub mod errors;
 
-pub use game::{Gamer, Renderer, Status};
-pub use error::GameError;
+pub use game::{Gamer, Renderer, Status, CommandResponse};
 pub use log::Log;
