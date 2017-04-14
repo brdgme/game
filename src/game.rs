@@ -5,6 +5,7 @@ use brdgme_markup::Node;
 
 use std::collections::{HashSet, HashMap};
 
+use command;
 use errors::*;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -45,6 +46,7 @@ pub trait Gamer: Sized {
                players: &[String])
                -> Result<CommandResponse>;
     fn status(&self) -> Status;
+    fn command_spec(&self, player: usize, players: &[String]) -> command::Specs;
 
     fn is_finished(&self) -> bool {
         match self.status() {
