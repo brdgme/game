@@ -97,6 +97,10 @@ pub trait Gamer: Sized {
             None => Err(ErrorKind::NotYourTurn.into()),
         }
     }
+
+    fn points(&self) -> Vec<f32> {
+        vec![]
+    }
 }
 
 pub trait Renderer {
