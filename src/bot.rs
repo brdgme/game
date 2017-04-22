@@ -37,7 +37,7 @@ pub trait Botter<T: Gamer> {
                     match g.command(0, &c, &[]) {
                         Ok(..) => {}
                         Err(Error(ErrorKind::InvalidInput(_), _)) => trace!("Invalid input: {}", c),
-                        Err(e) => panic!("{}", e),
+                        Err(e) => panic!("{:?}", e.backtrace().unwrap()),
                     }
                 }
                 step += 1;
