@@ -1,5 +1,5 @@
 use game_log::Log;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 use brdgme_markup::Node;
 
@@ -36,7 +36,7 @@ pub struct CommandResponse {
 }
 
 pub trait Gamer: Sized {
-    type PubState: Serialize + Renderer;
+    type PubState: Serialize + Deserialize + Renderer;
 
     fn new(players: usize) -> Result<(Self, Vec<Log>)>;
     fn pub_state(&self, player: Option<usize>) -> Self::PubState;
