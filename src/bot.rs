@@ -12,7 +12,7 @@ pub trait Botter<T: Gamer> {
                 -> Vec<String>;
 
     fn fuzz(steps: usize) {
-        trace!("Starting fuzz");
+        debug!("Starting fuzz");
         let player_counts = T::player_counts();
         let player_names: Vec<String> = (0..player_counts.iter().max().cloned().unwrap_or(0))
             .map(|c| format!("{}", c))
@@ -22,7 +22,7 @@ pub trait Botter<T: Gamer> {
         let mut game_number = 0;
         loop {
             game_number += 1;
-            trace!("Game {} starting", game_number);
+            debug!("Game {} starting", game_number);
             let player_count = *rng.choose(&player_counts).unwrap();
             let names = &player_names[..player_count];
             let (mut g, _) = T::new(player_count).unwrap();
@@ -34,7 +34,7 @@ pub trait Botter<T: Gamer> {
                                         g.command_spec(player, names)) {
                     match g.command(0, &c, &[]) {
                         Ok(..) => {}
-                        Err(Error(ErrorKind::InvalidInput(_), _)) => trace!("Invalid input: {}", c),
+                        Err(Error(ErrorKind::InvalidInput(_), _)) => debug!("Invalid input: {}", c),
                         Err(e) => panic!(e),
                     }
                 }
