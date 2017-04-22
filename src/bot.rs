@@ -6,9 +6,9 @@ use errors::*;
 
 pub trait Botter<T: Gamer> {
     fn commands(player: usize,
-                pub_state: T::PubState,
+                pub_state: &T::PubState,
                 players: &[String],
-                command_spec: CommandSpecs)
+                command_spec: &CommandSpecs)
                 -> Vec<String>;
 
     fn fuzz(steps: usize) {
@@ -33,9 +33,9 @@ pub trait Botter<T: Gamer> {
                 let player = *rng.choose(&g.whose_turn())
                                   .expect("no players in whose_turn");
                 for c in Self::commands(player,
-                                        g.pub_state(Some(player)),
+                                        &g.pub_state(Some(player)),
                                         names,
-                                        g.command_spec(player, names)) {
+                                        &g.command_spec(player, names)) {
                     trace!("Botter::fuzz: player {} command '{}'", player, c);
                     let cmd_res = g.command(player, &c, &[]);
                     match cmd_res {
