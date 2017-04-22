@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Kind {
-    Str,
     Int { min: Option<i32>, max: Option<i32> },
     Token(String),
     Ref(String),
@@ -48,7 +47,10 @@ pub struct Spec {
 impl Default for Spec {
     fn default() -> Self {
         Spec {
-            kind: Kind::Str,
+            kind: Kind::Int {
+                min: None,
+                max: None,
+            },
             min: 1,
             max: Some(1),
             description: None,
