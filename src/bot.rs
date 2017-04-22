@@ -20,13 +20,15 @@ pub trait Botter<T: Gamer> {
         let mut rng = rand::thread_rng();
         let mut step = 0;
         let mut game_number = 0;
-        loop {
+        'games: loop {
             game_number += 1;
             trace!("Botter::fuzz: game {} starting", game_number);
             let player_count = *rng.choose(&player_counts)
                                     .expect("game returned no available player counts");
             let names = &player_names[..player_count];
             let (mut g, _) = T::new(player_count).expect("game failed to start");
+            assert!(!g.is_finished(),
+                    "game was finished immediately after starting");
             while !g.is_finished() {
                 let player = *rng.choose(&g.whose_turn())
                                   .expect("no players in whose_turn");
@@ -46,9 +48,10 @@ pub trait Botter<T: Gamer> {
                 }
                 step += 1;
                 if step >= steps {
-                    return;
+                    break 'games;
                 }
             }
         }
+        trace!("Botter::fuzz: completed {} games", game_number);
     }
 }
