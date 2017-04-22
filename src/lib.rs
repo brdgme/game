@@ -6,6 +6,7 @@ extern crate serde;
 extern crate combine;
 #[macro_use]
 extern crate error_chain;
+extern crate rand;
 
 pub mod game;
 pub mod log;
