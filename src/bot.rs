@@ -1,6 +1,8 @@
+use rand::{self, Rng};
+
 use game::Gamer;
 use command::Specs as CommandSpecs;
-use rand::{self, Rng};
+use errors::*;
 
 pub trait Botter<T: Gamer> {
     fn commands(player: usize,
@@ -26,7 +28,11 @@ pub trait Botter<T: Gamer> {
                                         g.pub_state(Some(player)),
                                         names,
                                         g.command_spec(player, names)) {
-                    g.command(0, &c, &[]).unwrap();
+                    match g.command(0, &c, &[]) {
+                        Ok(..) => {}
+                        Err(Error(ErrorKind::InvalidInput(_), _)) => {}
+                        Err(e) => panic!(e),
+                    }
                 }
                 step += 1;
                 if step >= steps {
