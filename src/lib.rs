@@ -7,13 +7,15 @@ extern crate combine;
 #[macro_use]
 extern crate error_chain;
 extern crate rand;
+#[macro_use]
+extern crate log;
 
 pub mod game;
-pub mod log;
+pub mod game_log;
 pub mod parser;
 pub mod errors;
 pub mod command;
 pub mod bot;
 
 pub use game::{Gamer, Renderer, Status, CommandResponse, Stat};
-pub use log::Log;
+pub use game_log::Log;

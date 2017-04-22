@@ -1,4 +1,4 @@
-use log::Log;
+use game_log::Log;
 use serde::Serialize;
 
 use brdgme_markup::Node;
