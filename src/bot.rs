@@ -35,7 +35,7 @@ pub trait Botter<T: Gamer> {
                                         names,
                                         g.command_spec(player, names)) {
                     trace!("Botter::fuzz: player {} command '{}'", player, c);
-                    let cmd_res = g.command(0, &c, &[]);
+                    let cmd_res = g.command(player, &c, &[]);
                     match cmd_res {
                         Ok(..) => {}
                         Err(Error(ErrorKind::InvalidInput(_), _)) => {
