@@ -34,10 +34,11 @@ pub trait Botter<T: Gamer> {
                                         g.pub_state(Some(player)),
                                         names,
                                         g.command_spec(player, names)) {
-                    match g.command(0, &c, &[]) {
+                    let cmd_res = g.command(0, &c, &[]);
+                    match cmd_res {
                         Ok(..) => {}
                         Err(Error(ErrorKind::InvalidInput(_), _)) => trace!("Invalid input: {}", c),
-                        Err(e) => panic!("{:?}", e.backtrace().unwrap()),
+                        _ => cmd_res.map(|_| ()).unwrap(),
                     }
                 }
                 step += 1;
