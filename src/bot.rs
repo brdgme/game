@@ -23,11 +23,13 @@ pub trait Botter<T: Gamer> {
         loop {
             game_number += 1;
             debug!("Game {} starting", game_number);
-            let player_count = *rng.choose(&player_counts).unwrap();
+            let player_count = *rng.choose(&player_counts)
+                                    .expect("game returned no available player counts");
             let names = &player_names[..player_count];
-            let (mut g, _) = T::new(player_count).unwrap();
+            let (mut g, _) = T::new(player_count).expect("game failed to start");
             while !g.is_finished() {
-                let player = *rng.choose(&g.whose_turn()).unwrap();
+                let player = *rng.choose(&g.whose_turn())
+                                  .expect("no players in whose_turn");
                 for c in Self::commands(player,
                                         g.pub_state(Some(player)),
                                         names,
