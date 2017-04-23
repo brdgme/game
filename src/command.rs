@@ -67,16 +67,25 @@ impl Spec {
     }
 }
 
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Specs {
-    pub entry: String,
+    pub entry: Spec,
     pub specs: HashMap<String, Spec>,
 }
 
+impl Default for Specs {
+    fn default() -> Self {
+        Specs {
+            entry: Kind::OneOf(vec![]).spec(),
+            specs: HashMap::new(),
+        }
+    }
+}
+
 impl Specs {
-    pub fn new<T: Into<String>>(entry: T) -> Self {
+    pub fn new(entry: Spec) -> Self {
         Self {
-            entry: entry.into(),
+            entry: entry,
             ..Default::default()
         }
     }
@@ -92,7 +101,7 @@ mod tests {
 
     #[test]
     fn example_acquire_command_specs_works() {
-        let mut specs = Specs::new("command");
+        let mut specs = Specs::default();
         specs.register("command",
                        Kind::OneOf(vec![Kind::Chain(vec![
                     Kind::token("play").spec().desc("play a tile to the board"),
@@ -106,5 +115,6 @@ mod tests {
                                                           ])
                                                 .into()])
                                .into());
+        specs.entry = Kind::Ref("command".to_string()).spec();
     }
 }
