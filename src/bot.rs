@@ -20,7 +20,9 @@ pub struct Fuzzer<G: Gamer, B: Botter<G>> {
     player_count: usize,
     bot: B,
     rng: rand::ThreadRng,
-    pub game_count: usize,
+    game_count: usize,
+    command_count: usize,
+    invalid_input_count: usize,
 }
 
 impl<G: Gamer, B: Botter<G>> Fuzzer<G, B> {
@@ -36,7 +38,16 @@ impl<G: Gamer, B: Botter<G>> Fuzzer<G, B> {
             bot: bot,
             rng: rand::thread_rng(),
             game_count: 0,
+            command_count: 0,
+            invalid_input_count: 0,
         }
+    }
+
+    pub fn status(&self) -> String {
+        format!("Games: {}\tCommands: {}\tInvalid inputs: {}",
+                self.game_count,
+                self.command_count,
+                self.invalid_input_count)
     }
 }
 
@@ -69,9 +80,11 @@ impl<G: Gamer, B: Botter<G>> Iterator for Fuzzer<G, B> {
                 [0]
                     .to_owned();
             let cmd_res = game.command(player, &input, &self.player_names);
+            self.command_count += 1;
             match cmd_res {
                 Ok(..) => {}
                 Err(Error(ErrorKind::InvalidInput(e), _)) => {
+                    self.invalid_input_count += 1;
                     trace!("invalid input '{}' for player {}: {}", input, player, e)
                 }
                 _ => {
