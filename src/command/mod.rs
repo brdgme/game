@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+pub mod parser;
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Kind {
     Int { min: Option<i32>, max: Option<i32> },
