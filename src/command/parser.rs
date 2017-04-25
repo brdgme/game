@@ -1,3 +1,5 @@
+use unicase::UniCase;
+
 use std::marker::PhantomData;
 
 use errors::*;
@@ -13,9 +15,65 @@ pub trait Parser<T> {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, T>>;
 }
 
+pub struct Token {
+    pub token: String,
+}
+
+impl Token {
+    pub fn new<T>(token: T) -> Self
+        where T: Into<String>
+    {
+        Self { token: token.into() }
+    }
+}
+
+impl Parser<String> for Token {
+    fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, String>> {
+        let t_len = self.token.len();
+        if input.len() < self.token.len() || UniCase(&input[..t_len]) != UniCase(&self.token) {
+            bail!("could not find '{}'", self.token);
+        }
+        Ok(Output {
+               value: self.token.to_owned(),
+               consumed: &input[..t_len],
+               remaining: &input[t_len..],
+           })
+    }
+}
+
 pub struct Int {
     pub min: Option<i32>,
     pub max: Option<i32>,
+}
+
+impl Int {
+    pub fn any() -> Self {
+        Int {
+            min: None,
+            max: None,
+        }
+    }
+
+    pub fn positive() -> Self {
+        Int {
+            min: Some(1),
+            max: None,
+        }
+    }
+
+    pub fn not_negative() -> Self {
+        Int {
+            min: Some(0),
+            max: None,
+        }
+    }
+
+    pub fn bounded(min: i32, max: i32) -> Self {
+        Int {
+            min: Some(min),
+            max: Some(max),
+        }
+    }
 }
 
 impl Parser<i32> for Int {
@@ -183,11 +241,11 @@ impl<A, B, PA, PB> Parser<(A, B)> for Chain2<A, B, PA, PB>
 {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, (A, B)>> {
         let lhs = self.a.parse(input)?;
-        let sep = Whitespace {}.parse(&lhs.remaining);
+        let sep = Whitespace {}.parse(lhs.remaining);
         let remaining = sep.as_ref()
             .map(|s| s.remaining)
             .unwrap_or(lhs.remaining);
-        let rhs = self.b.parse(&remaining)?;
+        let rhs = self.b.parse(remaining)?;
         if !lhs.consumed.is_empty() && !rhs.consumed.is_empty() {
             if let Err(e) = sep {
                 return Err(e);
@@ -309,5 +367,21 @@ mod tests {
                        remaining: "bacon",
                    },
                    parser.parse("bacon").expect("expected 'bacon' to parse"));
+    }
+
+    #[test]
+    fn token_parser_works() {
+        let parser = Token::new("blah");
+        assert_eq!(Output {
+                       value: "blah".to_string(),
+                       consumed: "BlAh",
+                       remaining: "bacon",
+                   },
+                   parser
+                       .parse("BlAhbacon")
+                       .expect("expected 'BlAhbacon' to parse"));
+        parser
+            .parse("ClAhbacon")
+            .expect_err("expected 'ClAhbacon' to produce an error");
     }
 }

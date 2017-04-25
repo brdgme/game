@@ -9,6 +9,7 @@ extern crate error_chain;
 extern crate rand;
 #[macro_use]
 extern crate log;
+extern crate unicase;
 
 pub mod game;
 pub mod game_log;
