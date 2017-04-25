@@ -3,14 +3,14 @@ use std::marker::PhantomData;
 use errors::*;
 
 #[derive(Debug, PartialEq)]
-pub struct Output<T> {
+pub struct Output<'a, T> {
     pub value: T,
-    pub consumed: String,
-    pub remaining: String,
+    pub consumed: &'a str,
+    pub remaining: &'a str,
 }
 
 pub trait Parser<T> {
-    fn parse(&self, input: &str) -> Result<Output<T>>;
+    fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, T>>;
 }
 
 pub struct Int {
@@ -19,7 +19,7 @@ pub struct Int {
 }
 
 impl Parser<i32> for Int {
-    fn parse(&self, input: &str) -> Result<Output<i32>> {
+    fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, i32>> {
         let mut found_digit = false;
         let consumed_count = input
             .chars()
@@ -36,7 +36,7 @@ impl Parser<i32> for Int {
         if !found_digit {
             bail!("expected integer");
         }
-        let consumed = input[..consumed_count].to_string();
+        let consumed = &input[..consumed_count];
         let value: i32 = consumed
             .parse()
             .chain_err(|| "failed to parse integer")?;
@@ -53,7 +53,7 @@ impl Parser<i32> for Int {
         Ok(Output {
                value: value,
                consumed: consumed,
-               remaining: input[consumed_count..].to_string(),
+               remaining: &input[consumed_count..],
            })
     }
 }
@@ -86,7 +86,7 @@ impl<T, O, F, TP> Parser<O> for Map<T, O, F, TP>
     where F: Fn(T) -> O,
           TP: Parser<T>
 {
-    fn parse(&self, input: &str) -> Result<Output<O>> {
+    fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, O>> {
         let child_parse = self.parser.parse(input)?;
         Ok(Output {
                value: (self.map)(child_parse.value),
@@ -99,15 +99,15 @@ impl<T, O, F, TP> Parser<O> for Map<T, O, F, TP>
 pub struct Whitespace {}
 
 impl Parser<String> for Whitespace {
-    fn parse(&self, input: &str) -> Result<Output<String>> {
+    fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, String>> {
         let consumed = input.chars().take_while(|c| c.is_whitespace()).count();
         if consumed == 0 {
             bail!("expected whitespace");
         }
         Ok(Output {
                value: input[..consumed].to_owned(),
-               consumed: input[..consumed].to_string(),
-               remaining: input[consumed..].to_string(),
+               consumed: &input[..consumed],
+               remaining: &input[consumed..],
            })
     }
 }
@@ -140,11 +140,11 @@ impl<A, B, PA, PB> Parser<(A, B)> for Chain2<A, B, PA, PB>
     where PA: Parser<A>,
           PB: Parser<B>
 {
-    fn parse(&self, input: &str) -> Result<Output<(A, B)>> {
+    fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, (A, B)>> {
         let lhs = self.a.parse(input)?;
         let sep = Whitespace {}.parse(&lhs.remaining);
         let remaining = sep.as_ref()
-            .map(|s| s.remaining.to_owned())
+            .map(|s| s.remaining)
             .unwrap_or(lhs.remaining);
         let rhs = self.b.parse(&remaining)?;
         if !lhs.consumed.is_empty() && !rhs.consumed.is_empty() {
@@ -157,8 +157,8 @@ impl<A, B, PA, PB> Parser<(A, B)> for Chain2<A, B, PA, PB>
                            rhs.consumed.len();
         Ok(Output {
                value: (lhs.value, rhs.value),
-               consumed: input[..consumed_len].to_string(),
-               remaining: input[consumed_len..].to_string(),
+               consumed: &input[..consumed_len],
+               remaining: &input[consumed_len..],
            })
     }
 }
@@ -178,22 +178,22 @@ mod tests {
             .expect_err("expected 'fart' to produce an error");
         assert_eq!(Output {
                        value: 10,
-                       consumed: "10".to_string(),
-                       remaining: "".to_string(),
+                       consumed: "10",
+                       remaining: "",
                    },
                    parser.parse("10").expect("expected '10' to parse"));
         assert_eq!(Output {
                        value: 10,
-                       consumed: "10".to_string(),
-                       remaining: " with bacon and cheese".to_string(),
+                       consumed: "10",
+                       remaining: " with bacon and cheese",
                    },
                    parser
                        .parse("10 with bacon and cheese")
                        .expect("expected '10 with bacon and cheese' to parse"));
         assert_eq!(Output {
                        value: -10,
-                       consumed: "-10".to_string(),
-                       remaining: " with bacon and cheese".to_string(),
+                       consumed: "-10",
+                       remaining: " with bacon and cheese",
                    },
                    parser
                        .parse("-10 with bacon and cheese")
@@ -220,8 +220,8 @@ mod tests {
                               |i| i.to_string());
         assert_eq!(Output {
                        value: "123".to_string(),
-                       consumed: "00123".to_string(),
-                       remaining: "bacon".to_string(),
+                       consumed: "00123",
+                       remaining: "bacon",
                    },
                    parser
                        .parse("00123bacon")
@@ -240,8 +240,8 @@ mod tests {
                                  });
         assert_eq!(Output {
                        value: (123, 456),
-                       consumed: "123 456".to_string(),
-                       remaining: "  chairs".to_string(),
+                       consumed: "123 456",
+                       remaining: "  chairs",
                    },
                    parser
                        .parse("123 456  chairs")
