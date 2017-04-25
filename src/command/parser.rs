@@ -96,6 +96,47 @@ impl<T, O, F, TP> Parser<O> for Map<T, O, F, TP>
     }
 }
 
+pub struct Opt<T, TP>
+    where TP: Parser<T>
+{
+    pub parser: TP,
+    t_type: PhantomData<T>,
+}
+
+impl<T, TP> Opt<T, TP>
+    where TP: Parser<T>
+{
+    pub fn new(parser: TP) -> Self {
+        Self {
+            parser: parser,
+            t_type: PhantomData,
+        }
+    }
+}
+
+impl<T, TP> Parser<Option<T>> for Opt<T, TP>
+    where TP: Parser<T>
+{
+    fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, Option<T>>> {
+        Ok(match self.parser.parse(input) {
+               Ok(output) => {
+                   Output {
+                       value: Some(output.value),
+                       consumed: output.consumed,
+                       remaining: output.remaining,
+                   }
+               }
+               Err(_) => {
+                   Output {
+                       value: None,
+                       consumed: &input[..0],
+                       remaining: input,
+                   }
+               }
+           })
+    }
+}
+
 pub struct Whitespace {}
 
 impl Parser<String> for Whitespace {
@@ -246,5 +287,27 @@ mod tests {
                    parser
                        .parse("123 456  chairs")
                        .expect("expected '123 456  chairs' to parse"))
+    }
+
+    #[test]
+    fn opt_parser_works() {
+        let parser = Opt::new(Int {
+                                  min: None,
+                                  max: None,
+                              });
+        assert_eq!(Output {
+                       value: Some(123),
+                       consumed: "00123",
+                       remaining: "bacon",
+                   },
+                   parser
+                       .parse("00123bacon")
+                       .expect("expected '00123bacon' to parse"));
+        assert_eq!(Output {
+                       value: None,
+                       consumed: "",
+                       remaining: "bacon",
+                   },
+                   parser.parse("bacon").expect("expected 'bacon' to parse"));
     }
 }
