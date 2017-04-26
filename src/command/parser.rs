@@ -3,6 +3,7 @@ use unicase::UniCase;
 use std::marker::PhantomData;
 
 use errors::*;
+use command::Spec as CommandSpec;
 
 const MANY_DELIM: &'static str = ",";
 
@@ -15,6 +16,8 @@ pub struct Output<'a, T> {
 
 pub trait Parser<T> {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, T>>;
+
+    fn to_spec(&self) -> CommandSpec;
 }
 
 pub struct Token {
@@ -40,6 +43,10 @@ impl Parser<String> for Token {
                consumed: &input[..t_len],
                remaining: &input[t_len..],
            })
+    }
+
+    fn to_spec(&self) -> CommandSpec {
+        CommandSpec::Token(self.token.to_owned())
     }
 }
 
@@ -116,6 +123,13 @@ impl Parser<i32> for Int {
                remaining: &input[consumed_count..],
            })
     }
+
+    fn to_spec(&self) -> CommandSpec {
+        CommandSpec::Int {
+            min: self.min,
+            max: self.max,
+        }
+    }
 }
 
 pub struct Map<T, O, F, TP>
@@ -153,6 +167,10 @@ impl<T, O, F, TP> Parser<O> for Map<T, O, F, TP>
                consumed: child_parse.consumed,
                remaining: child_parse.remaining,
            })
+    }
+
+    fn to_spec(&self) -> CommandSpec {
+        self.parser.to_spec()
     }
 }
 
@@ -194,6 +212,10 @@ impl<T, TP> Parser<Option<T>> for Opt<T, TP>
                    }
                }
            })
+    }
+
+    fn to_spec(&self) -> CommandSpec {
+        CommandSpec::Opt(Box::new(self.parser.to_spec()))
     }
 }
 
@@ -298,6 +320,15 @@ impl<T, TP> Parser<Vec<T>> for Many<T, TP>
                remaining: &input[offset..],
            })
     }
+
+    fn to_spec(&self) -> CommandSpec {
+        CommandSpec::Many {
+            spec: Box::new(self.parser.to_spec()),
+            min: self.min,
+            max: self.max,
+            delim: self.delim.to_owned(),
+        }
+    }
 }
 
 struct Whitespace {}
@@ -313,6 +344,10 @@ impl Parser<String> for Whitespace {
                consumed: &input[..consumed],
                remaining: &input[consumed..],
            })
+    }
+
+    fn to_spec(&self) -> CommandSpec {
+        unimplemented!();
     }
 }
 
@@ -365,6 +400,10 @@ impl<A, B, PA, PB> Parser<(A, B)> for Chain2<A, B, PA, PB>
                remaining: &input[consumed_len..],
            })
     }
+
+    fn to_spec(&self) -> CommandSpec {
+        CommandSpec::Chain(vec![self.a.to_spec(), self.b.to_spec()])
+    }
 }
 
 pub struct OneOf<T, TP: Parser<T> + ?Sized> {
@@ -389,6 +428,10 @@ impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
             }
         }
         bail!("none of the parsers matched");
+    }
+
+    fn to_spec(&self) -> CommandSpec {
+        CommandSpec::Chain(self.parsers.iter().map(|p| p.to_spec()).collect())
     }
 }
 

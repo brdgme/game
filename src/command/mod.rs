@@ -9,9 +9,9 @@ pub enum Spec {
     Chain(Vec<Spec>),
     Many {
         spec: Box<Spec>,
-        min: Option<i32>,
-        max: Option<i32>,
-        delimiter: String,
+        min: Option<usize>,
+        max: Option<usize>,
+        delim: String,
     },
     Opt(Box<Spec>),
 }
