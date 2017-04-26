@@ -1,7 +1,7 @@
 use rand::{self, Rng};
 
 use game::Gamer;
-use command::Specs as CommandSpecs;
+use command::Spec as CommandSpec;
 use errors::*;
 
 pub trait Botter<T: Gamer> {
@@ -9,7 +9,7 @@ pub trait Botter<T: Gamer> {
                 player: usize,
                 pub_state: &T::PubState,
                 players: &[String],
-                command_spec: &CommandSpecs)
+                command_spec: &CommandSpec)
                 -> Vec<String>;
 }
 

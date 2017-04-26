@@ -300,7 +300,7 @@ impl<T, TP> Parser<Vec<T>> for Many<T, TP>
     }
 }
 
-pub struct Whitespace {}
+struct Whitespace {}
 
 impl Parser<String> for Whitespace {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, String>> {
@@ -364,6 +364,31 @@ impl<A, B, PA, PB> Parser<(A, B)> for Chain2<A, B, PA, PB>
                consumed: &input[..consumed_len],
                remaining: &input[consumed_len..],
            })
+    }
+}
+
+pub struct OneOf<T, TP: Parser<T>> {
+    pub parsers: Vec<Box<TP>>,
+    t_type: PhantomData<T>,
+}
+
+impl<T, TP: Parser<T>> OneOf<T, TP> {
+    pub fn new(parsers: Vec<Box<TP>>) -> Self {
+        Self {
+            parsers: parsers,
+            t_type: PhantomData,
+        }
+    }
+}
+
+impl<T, TP: Parser<T>> Parser<T> for OneOf<T, TP> {
+    fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, T>> {
+        for p in &self.parsers {
+            if let Ok(output) = p.parse(input) {
+                return Ok(output);
+            }
+        }
+        bail!("none of the parsers matched");
     }
 }
 
@@ -527,5 +552,13 @@ mod tests {
                    parser
                        .parse("3; 4; 5")
                        .expect("expected '3; 4; 5' to parse"));
+    }
+
+    #[test]
+    fn test_one_of_works() {
+        let parsers: Vec<Box<Parser<String>>> = vec![];
+        parsers.push(Box::new(Token::new("blah")));
+        parsers.push(Box::new(Many::any(Token::new("fart"))));
+        let parser = OneOf::new(parsers);
     }
 }
