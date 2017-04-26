@@ -4,6 +4,8 @@ use std::marker::PhantomData;
 
 use errors::*;
 
+const MANY_DELIM: &'static str = ",";
+
 #[derive(Debug, PartialEq)]
 pub struct Output<'a, T> {
     pub value: T,
@@ -191,6 +193,109 @@ impl<T, TP> Parser<Option<T>> for Opt<T, TP>
                        remaining: input,
                    }
                }
+           })
+    }
+}
+
+pub struct Many<T, TP>
+    where TP: Parser<T>
+{
+    pub parser: TP,
+    pub min: Option<usize>,
+    pub max: Option<usize>,
+    pub delim: String,
+    t_type: PhantomData<T>,
+}
+
+impl<T, TP> Many<T, TP>
+    where TP: Parser<T>
+{
+    pub fn any(parser: TP) -> Self {
+        Self {
+            parser: parser,
+            min: None,
+            max: None,
+            delim: MANY_DELIM.to_string(),
+            t_type: PhantomData,
+        }
+    }
+
+    pub fn some(parser: TP) -> Self {
+        Self {
+            parser: parser,
+            min: Some(1),
+            max: None,
+            delim: MANY_DELIM.to_string(),
+            t_type: PhantomData,
+        }
+    }
+
+    pub fn bounded(parser: TP, min: usize, max: usize) -> Self {
+        Self {
+            parser: parser,
+            min: Some(min),
+            max: Some(max),
+            delim: MANY_DELIM.to_string(),
+            t_type: PhantomData,
+        }
+    }
+}
+
+impl<T, TP> Parser<Vec<T>> for Many<T, TP>
+    where TP: Parser<T>
+{
+    fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, Vec<T>>> {
+        let mut parsed: Vec<T> = vec![];
+        if let Some(max) = self.max {
+            if max == 0 || max < self.min.unwrap_or(0) {
+                return Ok(Output {
+                              value: parsed,
+                              consumed: &input[..0],
+                              remaining: input,
+                          });
+            }
+        }
+        let mut first = true;
+        let mut offset = 0;
+        let delim = Chain2::new(Opt::new(Whitespace {}),
+                                Chain2::new(Token::new(self.delim.to_owned()),
+                                            Opt::new(Whitespace {})));
+        'outer: loop {
+            let mut inner_offset = offset;
+            if !first {
+                match delim.parse(&input[offset..]) {
+                    Ok(Output { consumed, .. }) => inner_offset += consumed.len(),
+                    Err(_) => break 'outer,
+                };
+            } else {
+                first = false;
+            }
+            match self.parser.parse(&input[inner_offset..]) {
+                Ok(Output { value, consumed, .. }) => {
+                    parsed.push(value);
+                    offset = inner_offset + consumed.len();
+                    if let Some(max) = self.max {
+                        if parsed.len() == max {
+                            break 'outer;
+                        }
+                    }
+                }
+                Err(_) => {
+                    break 'outer;
+                }
+            };
+        }
+        if let Some(min) = self.min {
+            if parsed.len() < min {
+                bail!("expected at least {} items but could only parse {}",
+                      min,
+                      parsed.len());
+            }
+        }
+        Ok(Output {
+               value: parsed,
+               consumed: &input[..offset],
+               remaining: &input[offset..],
            })
     }
 }
@@ -383,5 +488,44 @@ mod tests {
         parser
             .parse("ClAhbacon")
             .expect_err("expected 'ClAhbacon' to produce an error");
+    }
+
+    #[test]
+    fn many_parser_works() {
+        let mut parser = Many::any(Int {
+                                       min: None,
+                                       max: None,
+                                   });
+        assert_eq!(Output {
+                       value: vec![3, 4, 5],
+                       consumed: "3, 4, 5",
+                       remaining: "",
+                   },
+                   parser
+                       .parse("3, 4, 5")
+                       .expect("expected '3, 4, 5' to parse"));
+        parser.min = Some(5);
+        parser
+            .parse("3, 4, 5")
+            .expect_err("expected '3, 4, 5' with a min of 5 to produce an error");
+        parser.max = Some(5);
+        assert_eq!(Output {
+                       value: vec![3, 4, 5, 6, 7],
+                       consumed: "3, 4, 5, 6, 7",
+                       remaining: ", 8, 9, 10",
+                   },
+                   parser
+                       .parse("3, 4, 5, 6, 7, 8, 9, 10")
+                       .expect("expected '3, 4, 5, 6, 7, 8, 9, 10' to parse"));
+        parser.min = None;
+        parser.delim = ";".to_string();
+        assert_eq!(Output {
+                       value: vec![3, 4, 5],
+                       consumed: "3; 4; 5",
+                       remaining: "",
+                   },
+                   parser
+                       .parse("3; 4; 5")
+                       .expect("expected '3; 4; 5' to parse"));
     }
 }
