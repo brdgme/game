@@ -367,12 +367,12 @@ impl<A, B, PA, PB> Parser<(A, B)> for Chain2<A, B, PA, PB>
     }
 }
 
-pub struct OneOf<T, TP: Parser<T>> {
+pub struct OneOf<T, TP: Parser<T> + ?Sized> {
     pub parsers: Vec<Box<TP>>,
     t_type: PhantomData<T>,
 }
 
-impl<T, TP: Parser<T>> OneOf<T, TP> {
+impl<T, TP: Parser<T> + ?Sized> OneOf<T, TP> {
     pub fn new(parsers: Vec<Box<TP>>) -> Self {
         Self {
             parsers: parsers,
@@ -381,7 +381,7 @@ impl<T, TP: Parser<T>> OneOf<T, TP> {
     }
 }
 
-impl<T, TP: Parser<T>> Parser<T> for OneOf<T, TP> {
+impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, T>> {
         for p in &self.parsers {
             if let Ok(output) = p.parse(input) {
@@ -556,9 +556,23 @@ mod tests {
 
     #[test]
     fn test_one_of_works() {
-        let parsers: Vec<Box<Parser<String>>> = vec![];
-        parsers.push(Box::new(Token::new("blah")));
-        parsers.push(Box::new(Many::any(Token::new("fart"))));
+        let parsers: Vec<Box<Parser<String>>> = vec![Box::new(Token::new("blah")),
+                                                     Box::new(Map::new(Many::any(Token::new("fart")),
+                                                                       |v| v.join(" ")))];
         let parser = OneOf::new(parsers);
+        assert_eq!(Output {
+                       value: "blah".to_string(),
+                       consumed: "blah",
+                       remaining: "",
+                   },
+                   parser.parse("blah").expect("expected 'blah' to parse"));
+        assert_eq!(Output {
+                       value: "fart fart fart".to_string(),
+                       consumed: "fart, fart, fart",
+                       remaining: "",
+                   },
+                   parser
+                       .parse("fart, fart, fart")
+                       .expect("expected 'fart, fart, fart' to parse"));
     }
 }
