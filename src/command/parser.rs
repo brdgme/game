@@ -2,6 +2,7 @@ use unicase::UniCase;
 
 use std::marker::PhantomData;
 use std::cmp;
+use std::collections::HashSet;
 
 use errors::*;
 use command::Spec as CommandSpec;
@@ -460,8 +461,14 @@ impl<T> Parser<T> for Enum<T>
         // match.
         let mut full_match = false;
         let i_len = input.len();
+        // Avoid duplicated
+        let mut searched: HashSet<String> = HashSet::new();
         for v in &self.values {
             let v_str = v.clone().to_string();
+            if searched.contains(&v_str) {
+                continue;
+            }
+            searched.insert(v_str.clone());
             let v_len = v_str.len();
             let cmp_len = cmp::min(i_len, v_len);
             if cmp_len >= match_len && (!full_match || cmp_len == v_len) &&
