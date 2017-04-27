@@ -437,13 +437,13 @@ impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
 }
 
 pub struct Enum<T>
-    where T: Into<String> + Clone
+    where T: ToString + Clone
 {
     pub values: Vec<T>,
 }
 
 impl<T> Enum<T>
-    where T: Into<String> + Clone
+    where T: ToString + Clone
 {
     pub fn new(values: Vec<T>) -> Self {
         Self { values: values }
@@ -451,7 +451,7 @@ impl<T> Enum<T>
 }
 
 impl<T> Parser<T> for Enum<T>
-    where T: Into<String> + Clone
+    where T: ToString + Clone
 {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, T>> {
         let mut matched: Vec<&T> = vec![];
@@ -461,7 +461,7 @@ impl<T> Parser<T> for Enum<T>
         let mut full_match = false;
         let i_len = input.len();
         for v in &self.values {
-            let v_str = v.clone().into();
+            let v_str = v.clone().to_string();
             let v_len = v_str.len();
             let cmp_len = cmp::min(i_len, v_len);
             if cmp_len >= match_len && (!full_match || cmp_len == v_len) &&
@@ -494,7 +494,7 @@ impl<T> Parser<T> for Enum<T>
         CommandSpec::Enum(self.values
                               .iter()
                               .cloned()
-                              .map(|v| v.into())
+                              .map(|v| v.to_string())
                               .collect())
     }
 }
