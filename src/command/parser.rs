@@ -1,6 +1,7 @@
 use unicase::UniCase;
 
 use std::marker::PhantomData;
+use std::cmp;
 
 use errors::*;
 use command::Spec as CommandSpec;
@@ -435,6 +436,69 @@ impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
     }
 }
 
+pub struct Enum<T>
+    where T: Into<String> + Clone
+{
+    pub values: Vec<T>,
+}
+
+impl<T> Enum<T>
+    where T: Into<String> + Clone
+{
+    pub fn new(values: Vec<T>) -> Self {
+        Self { values: values }
+    }
+}
+
+impl<T> Parser<T> for Enum<T>
+    where T: Into<String> + Clone
+{
+    fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, T>> {
+        let mut matched: Vec<&T> = vec![];
+        let mut match_len: usize = 0;
+        // Exact matches are prioritised, a shorter full match will happen over a longer partial
+        // match.
+        let mut full_match = false;
+        let i_len = input.len();
+        for v in &self.values {
+            let v_str = v.clone().into();
+            let v_len = v_str.len();
+            let cmp_len = cmp::min(i_len, v_len);
+            if cmp_len >= match_len && (!full_match || cmp_len == v_len) &&
+               UniCase(input) == UniCase(&v_str[..cmp_len]) {
+                if cmp_len == v_len {
+                    full_match = true
+                }
+                if cmp_len > match_len {
+                    matched = vec![v];
+                    match_len = cmp_len;
+                } else {
+                    matched.push(v);
+                }
+            }
+        }
+        match matched.len() {
+            1 => {
+                Ok(Output {
+                       value: matched[0].to_owned(),
+                       consumed: &input[..match_len],
+                       remaining: &input[match_len..],
+                   })
+            }
+            0 => bail!("could not find"),
+            _ => bail!("could not match uniquely"),
+        }
+    }
+
+    fn to_spec(&self) -> CommandSpec {
+        CommandSpec::Enum(self.values
+                              .iter()
+                              .cloned()
+                              .map(|v| v.into())
+                              .collect())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -617,5 +681,40 @@ mod tests {
                    parser
                        .parse("fart, fart, fart")
                        .expect("expected 'fart, fart, fart' to parse"));
+    }
+
+    #[test]
+    fn test_enum_works() {
+        let parser = Enum::new(vec!["fart", "cheese", "dog", "bacon", "farty"]);
+        assert_eq!(Output {
+                       value: "cheese",
+                       consumed: "c",
+                       remaining: "",
+                   },
+                   parser.parse("c").expect("expected 'c' to parse"));
+        parser
+            .parse("hat")
+            .expect_err("expected 'hat' to produce error");
+        parser
+            .parse("far")
+            .expect_err("expected 'far' to produce error");
+        assert_eq!(Output {
+                       value: "fart",
+                       consumed: "fart",
+                       remaining: "",
+                   },
+                   parser.parse("fart").expect("expected 'fart' to parse"));
+        assert_eq!(Output {
+                       value: "farty",
+                       consumed: "farty",
+                       remaining: "",
+                   },
+                   parser.parse("farty").expect("expected 'farty' to parse"));
+        assert_eq!(Output {
+                       value: "dog",
+                       consumed: "DoG",
+                       remaining: "",
+                   },
+                   parser.parse("DoG").expect("expected 'DoG' to parse"));
     }
 }
