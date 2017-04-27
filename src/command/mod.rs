@@ -4,7 +4,7 @@ pub mod parser;
 pub enum Spec {
     Int { min: Option<i32>, max: Option<i32> },
     Token(String),
-    Enum(Vec<String>),
+    Enum { values: Vec<String>, exact: bool },
     OneOf(Vec<Spec>),
     Chain(Vec<Spec>),
     Many {

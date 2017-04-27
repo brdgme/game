@@ -441,13 +441,24 @@ pub struct Enum<T>
     where T: ToString + Clone
 {
     pub values: Vec<T>,
+    pub exact: bool,
 }
 
 impl<T> Enum<T>
     where T: ToString + Clone
 {
-    pub fn new(values: Vec<T>) -> Self {
-        Self { values: values }
+    pub fn exact(values: Vec<T>) -> Self {
+        Self {
+            values: values,
+            exact: true,
+        }
+    }
+
+    pub fn partial(values: Vec<T>) -> Self {
+        Self {
+            values: values,
+            exact: false,
+        }
     }
 }
 
@@ -461,16 +472,21 @@ impl<T> Parser<T> for Enum<T>
         // match.
         let mut full_match = false;
         let i_len = input.len();
-        // Avoid duplicated
+        // Track which values have been searched to avoid duplicates.
         let mut searched: HashSet<String> = HashSet::new();
         for v in &self.values {
             let v_str = v.clone().to_string();
             if searched.contains(&v_str) {
+                // This is a duplicate, skip it.
                 continue;
             }
             searched.insert(v_str.clone());
             let v_len = v_str.len();
             let cmp_len = cmp::min(i_len, v_len);
+            if self.exact && cmp_len < v_len {
+                // The input isn't long enough and we require exact match, skip it.
+                continue;
+            }
             if cmp_len >= match_len && (!full_match || cmp_len == v_len) &&
                UniCase(input) == UniCase(&v_str[..cmp_len]) {
                 if cmp_len == v_len {
@@ -498,11 +514,14 @@ impl<T> Parser<T> for Enum<T>
     }
 
     fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Enum(self.values
-                              .iter()
-                              .cloned()
-                              .map(|v| v.to_string())
-                              .collect())
+        CommandSpec::Enum {
+            values: self.values
+                .iter()
+                .cloned()
+                .map(|v| v.to_string())
+                .collect(),
+            exact: self.exact,
+        }
     }
 }
 
@@ -733,7 +752,7 @@ mod tests {
 
     #[test]
     fn test_enum_works() {
-        let parser = Enum::new(vec!["fart", "cheese", "dog", "bacon", "farty"]);
+        let parser = Enum::partial(vec!["fart", "cheese", "dog", "bacon", "farty"]);
         assert_eq!(Output {
                        value: "cheese",
                        consumed: "c",
