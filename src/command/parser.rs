@@ -432,7 +432,7 @@ impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
     }
 
     fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Chain(self.parsers.iter().map(|p| p.to_spec()).collect())
+        CommandSpec::OneOf(self.parsers.iter().map(|p| p.to_spec()).collect())
     }
 }
 
