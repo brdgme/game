@@ -14,4 +14,9 @@ pub enum Spec {
         delim: String,
     },
     Opt(Box<Spec>),
+    Doc {
+        name: String,
+        desc: Option<String>,
+        spec: Box<Spec>,
+    },
 }

@@ -499,6 +499,47 @@ impl<T> Parser<T> for Enum<T>
     }
 }
 
+pub struct Doc<T, TP: Parser<T>> {
+    pub name: String,
+    pub desc: Option<String>,
+    pub parser: TP,
+    t_type: PhantomData<T>,
+}
+
+impl<T, TP: Parser<T>> Doc<T, TP> {
+    pub fn name<I: Into<String>>(name: I, parser: TP) -> Self {
+        Self {
+            name: name.into(),
+            desc: None,
+            parser: parser,
+            t_type: PhantomData,
+        }
+    }
+
+    pub fn name_desc<I: Into<String>>(name: I, desc: I, parser: TP) -> Self {
+        Self {
+            name: name.into(),
+            desc: Some(desc.into()),
+            parser: parser,
+            t_type: PhantomData,
+        }
+    }
+}
+
+impl<T, TP: Parser<T>> Parser<T> for Doc<T, TP> {
+    fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, T>> {
+        self.parser.parse(input)
+    }
+
+    fn to_spec(&self) -> CommandSpec {
+        CommandSpec::Doc {
+            name: self.name.to_owned(),
+            desc: self.desc.to_owned(),
+            spec: Box::new(self.parser.to_spec()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
