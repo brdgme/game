@@ -648,7 +648,12 @@ impl<T> Parser<T> for Enum<T>
     }
 
     fn expected(&self) -> Vec<String> {
-        self.values.iter().map(|v| v.to_string()).collect()
+        let mut values = self.values
+            .iter()
+            .map(|v| v.to_string())
+            .collect::<Vec<String>>();
+        values.sort();
+        values
     }
 
     fn to_spec(&self) -> CommandSpec {
