@@ -696,7 +696,7 @@ impl<T, TP: Parser<T>> Parser<T> for Doc<T, TP> {
     }
 
     fn expected(&self) -> Vec<String> {
-        vec![self.name.to_owned()]
+        self.parser.expected()
     }
 
     fn to_spec(&self) -> CommandSpec {
