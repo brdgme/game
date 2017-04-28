@@ -39,7 +39,7 @@ impl Parser<String> for Token {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, String>> {
         let t_len = self.token.len();
         if input.len() < self.token.len() || UniCase(&input[..t_len]) != UniCase(&self.token) {
-            bail!(ErrorKind::Parse(format!("expected {}", self.token), self.expected(), 0));
+            bail!(ErrorKind::Parse(None, self.expected(), 0));
         }
         Ok(Output {
                value: self.token.to_owned(),
@@ -117,36 +117,24 @@ impl Parser<i32> for Int {
             })
             .count();
         if !found_digit {
-            bail!(ErrorKind::Parse(format!("expected {}", self.expected_output()),
-                                   self.expected(),
-                                   0));
+            bail!(ErrorKind::Parse(None, self.expected(), 0));
         }
         let consumed = &input[..consumed_count];
         let value: i32 = consumed
             .parse()
             .chain_err(|| {
-                           ErrorKind::Parse(format!("failed to parse '{}', expected {}",
-                                                    consumed,
-                                                    self.expected_output()),
+                           ErrorKind::Parse(Some(format!("failed to parse '{}'", consumed)),
                                             self.expected(),
                                             0)
                        })?;
         if let Some(min) = self.min {
             if value < min {
-                bail!(ErrorKind::Parse(format!("{} is too low, expected {}",
-                                               value,
-                                               self.expected_output()),
-                                       self.expected(),
-                                       0));
+                bail!(ErrorKind::Parse(Some(format!("{} is too low", value)), self.expected(), 0));
             }
         }
         if let Some(max) = self.max {
             if value > max {
-                bail!(ErrorKind::Parse(format!("{} is too high, expected {}",
-                                               value,
-                                               self.expected_output()),
-                                       self.expected(),
-                                       0));
+                bail!(ErrorKind::Parse(Some(format!("{} is too high", value)), self.expected(), 0));
             }
         }
         Ok(Output {
@@ -398,7 +386,7 @@ impl Parser<String> for Whitespace {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, String>> {
         let consumed = input.chars().take_while(|c| c.is_whitespace()).count();
         if consumed == 0 {
-            bail!(ErrorKind::Parse("expected whitespace".to_string(), self.expected(), 0));
+            bail!(ErrorKind::Parse(None, self.expected(), 0));
         }
         Ok(Output {
                value: input[..consumed].to_owned(),
@@ -460,15 +448,11 @@ impl<A, B, PA, PB> Parser<(A, B)> for Chain2<A, B, PA, PB>
                     Error(ErrorKind::Parse(message, expected, consumed), _) => {
                         ErrorKind::Parse(message, expected, consumed + offset).into()
                     }
-                    _ => ErrorKind::Parse(format!("{}", e), self.b.expected(), offset),
+                    _ => ErrorKind::Parse(Some(e.to_string()), self.b.expected(), offset),
                 }
             })?;
-        if !lhs.consumed.is_empty() && !rhs.consumed.is_empty() {
-            if let Err(e) = sep {
-                bail!(ErrorKind::Parse(format!("{}", e),
-                                       sep_parser.expected(),
-                                       lhs.consumed.len()));
-            }
+        if !lhs.consumed.is_empty() && !rhs.consumed.is_empty() && sep.is_err() {
+            bail!(ErrorKind::Parse(None, sep_parser.expected(), lhs.consumed.len()));
         }
         let consumed_len = lhs.consumed.len() +
                            sep.as_ref().map(|s| s.consumed.len()).unwrap_or(0) +
@@ -525,10 +509,20 @@ impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
             }
         }
 
-        bail!(ErrorKind::Parse(comma_list_or(&errors
-                                                  .iter()
-                                                  .map(|e| format!("'{}'", e))
-                                                  .collect::<Vec<String>>()),
+        let error_messages =
+            &errors
+                 .iter()
+                 .filter_map(|e| if let Error(ErrorKind::Parse(ref m, ..), ..) = *e {
+                                 m.to_owned()
+                             } else {
+                                 None
+                             })
+                 .collect::<Vec<String>>();
+        bail!(ErrorKind::Parse(if error_messages.is_empty() {
+                                   None
+                               } else {
+                                   Some(comma_list_or(error_messages))
+                               },
                                errors
                                    .iter()
                                    .flat_map(|e| match *e {
@@ -641,18 +635,12 @@ impl<T> Parser<T> for Enum<T>
                        remaining: &input[match_len..],
                    })
             }
-            0 => {
-                bail!(ErrorKind::Parse(format!("expected one of {}",
-                                               comma_list_or(&self.expected())),
-                                       self.expected(),
-                                       0))
-            }
+            0 => bail!(ErrorKind::Parse(None, self.expected(), 0)),
             _ => {
-                bail!(ErrorKind::Parse(format!(
-                    "{} matched {}, more input is required to uniquely match one, expected one of",
+                bail!(ErrorKind::Parse(Some(format!(
+                    "matched {}, more input is required to uniquely match one",
                     comma_list_and(&matched.iter().map(|m| m.to_string()).collect::<Vec<String>>()),
-                    comma_list_or(&self.expected()),
-                ),
+                )),
                                        self.expected(),
                                        0))
             }

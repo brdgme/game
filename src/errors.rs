@@ -24,9 +24,10 @@ error_chain! {
             description("internal error")
             display("internal error: {}", message)
         }
-        Parse(message: String, expected: Vec<String>, offset: usize) {
+        Parse(message: Option<String>, expected: Vec<String>, offset: usize) {
             description("parse error")
-            display("{}, expected {}", message, comma_list_or(&expected))
+            display("{}expected {}", message.as_ref().map(|m| format!("{}, ", m))
+                .unwrap_or_else(|| "".to_string()), comma_list_or(expected))
         }
     }
 }
