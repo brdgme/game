@@ -553,7 +553,7 @@ impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
     }
 }
 
-fn comma_list<T: Display>(items: &[T], last: &str) -> String {
+pub fn comma_list<T: Display>(items: &[T], last: &str) -> String {
     match items.len() {
         0 => "".to_string(),
         1 => format!("{}", items[0]),
@@ -562,11 +562,11 @@ fn comma_list<T: Display>(items: &[T], last: &str) -> String {
     }
 }
 
-fn comma_list_or<T: Display>(items: &[T]) -> String {
+pub fn comma_list_or<T: Display>(items: &[T]) -> String {
     comma_list(items, "or")
 }
 
-fn comma_list_and<T: Display>(items: &[T]) -> String {
+pub fn comma_list_and<T: Display>(items: &[T]) -> String {
     comma_list(items, "and")
 }
 

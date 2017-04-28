@@ -1,3 +1,5 @@
+use command::parser::comma_list_or;
+
 error_chain! {
     errors {
         PlayerCount(min: usize, max: usize, given: usize) {
@@ -24,7 +26,7 @@ error_chain! {
         }
         Parse(message: String, expected: Vec<String>, offset: usize) {
             description("parse error")
-            display("{}", message)
+            display("{}, expected {}", message, comma_list_or(&expected))
         }
     }
 }
