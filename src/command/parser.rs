@@ -3,6 +3,7 @@ use unicase::UniCase;
 use std::marker::PhantomData;
 use std::cmp;
 use std::collections::HashSet;
+use std::fmt::Display;
 
 use errors::*;
 use command::Spec as CommandSpec;
@@ -18,7 +19,7 @@ pub struct Output<'a, T> {
 
 pub trait Parser<T> {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, T>>;
-
+    fn expected(&self) -> Vec<String>;
     fn to_spec(&self) -> CommandSpec;
 }
 
@@ -38,13 +39,17 @@ impl Parser<String> for Token {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, String>> {
         let t_len = self.token.len();
         if input.len() < self.token.len() || UniCase(&input[..t_len]) != UniCase(&self.token) {
-            bail!("could not find '{}'", self.token);
+            bail!(ErrorKind::Parse(format!("expected {}", self.token), self.expected(), 0));
         }
         Ok(Output {
                value: self.token.to_owned(),
                consumed: &input[..t_len],
                remaining: &input[t_len..],
            })
+    }
+
+    fn expected(&self) -> Vec<String> {
+        vec![self.token.to_owned()]
     }
 
     fn to_spec(&self) -> CommandSpec {
@@ -85,6 +90,15 @@ impl Int {
             max: Some(max),
         }
     }
+
+    fn expected_output(&self) -> String {
+        match (self.min, self.max) {
+            (None, None) => "number".to_string(),
+            (Some(min), None) => format!("number {} or higher", min),
+            (None, Some(max)) => format!("number {} or lower", max),
+            (Some(min), Some(max)) => format!("number between {} and {}", min, max),
+        }
+    }
 }
 
 impl Parser<i32> for Int {
@@ -103,20 +117,36 @@ impl Parser<i32> for Int {
             })
             .count();
         if !found_digit {
-            bail!("expected integer");
+            bail!(ErrorKind::Parse(format!("expected {}", self.expected_output()),
+                                   self.expected(),
+                                   0));
         }
         let consumed = &input[..consumed_count];
         let value: i32 = consumed
             .parse()
-            .chain_err(|| "failed to parse integer")?;
+            .chain_err(|| {
+                           ErrorKind::Parse(format!("failed to parse '{}', expected {}",
+                                                    consumed,
+                                                    self.expected_output()),
+                                            self.expected(),
+                                            0)
+                       })?;
         if let Some(min) = self.min {
             if value < min {
-                bail!("'{}' is less than the minimum '{}'", value, min);
+                bail!(ErrorKind::Parse(format!("{} is too low, expected {}",
+                                               value,
+                                               self.expected_output()),
+                                       self.expected(),
+                                       0));
             }
         }
         if let Some(max) = self.max {
             if value > max {
-                bail!("'{}' is greater than the maximum '{}'", value, max);
+                bail!(ErrorKind::Parse(format!("{} is too high, expected {}",
+                                               value,
+                                               self.expected_output()),
+                                       self.expected(),
+                                       0));
             }
         }
         Ok(Output {
@@ -124,6 +154,10 @@ impl Parser<i32> for Int {
                consumed: consumed,
                remaining: &input[consumed_count..],
            })
+    }
+
+    fn expected(&self) -> Vec<String> {
+        vec![self.expected_output()]
     }
 
     fn to_spec(&self) -> CommandSpec {
@@ -171,6 +205,10 @@ impl<T, O, F, TP> Parser<O> for Map<T, O, F, TP>
            })
     }
 
+    fn expected(&self) -> Vec<String> {
+        self.parser.expected()
+    }
+
     fn to_spec(&self) -> CommandSpec {
         self.parser.to_spec()
     }
@@ -214,6 +252,14 @@ impl<T, TP> Parser<Option<T>> for Opt<T, TP>
                    }
                }
            })
+    }
+
+    fn expected(&self) -> Vec<String> {
+        self.parser
+            .expected()
+            .iter()
+            .map(|e| format!("optional {}", e))
+            .collect()
     }
 
     fn to_spec(&self) -> CommandSpec {
@@ -323,6 +369,19 @@ impl<T, TP> Parser<Vec<T>> for Many<T, TP>
            })
     }
 
+    fn expected(&self) -> Vec<String> {
+        self.parser
+            .expected()
+            .iter()
+            .map(|e| match (self.min, self.max) {
+                     (None, None) => format!("any number of {}", e),
+                     (Some(min), None) => format!("{} or more {}", min, e),
+                     (None, Some(max)) => format!("up to {} {}", max, e),
+                     (Some(min), Some(max)) => format!("between {} and {} {}", min, max, e),
+                 })
+            .collect()
+    }
+
     fn to_spec(&self) -> CommandSpec {
         CommandSpec::Many {
             spec: Box::new(self.parser.to_spec()),
@@ -339,13 +398,17 @@ impl Parser<String> for Whitespace {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, String>> {
         let consumed = input.chars().take_while(|c| c.is_whitespace()).count();
         if consumed == 0 {
-            bail!("expected whitespace");
+            bail!(ErrorKind::Parse("expected whitespace".to_string(), self.expected(), 0));
         }
         Ok(Output {
                value: input[..consumed].to_owned(),
                consumed: &input[..consumed],
                remaining: &input[consumed..],
            })
+    }
+
+    fn expected(&self) -> Vec<String> {
+        vec!["whitespace".to_string()]
     }
 
     fn to_spec(&self) -> CommandSpec {
@@ -383,14 +446,28 @@ impl<A, B, PA, PB> Parser<(A, B)> for Chain2<A, B, PA, PB>
 {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, (A, B)>> {
         let lhs = self.a.parse(input)?;
-        let sep = Whitespace {}.parse(lhs.remaining);
+        let sep_parser = Whitespace {};
+        let sep = sep_parser.parse(lhs.remaining);
+        let sep_len = sep.as_ref().map(|o| o.consumed.len()).unwrap_or(0);
         let remaining = sep.as_ref()
             .map(|s| s.remaining)
             .unwrap_or(lhs.remaining);
-        let rhs = self.b.parse(remaining)?;
+        let rhs = self.b
+            .parse(remaining)
+            .map_err(|e| {
+                let offset = lhs.consumed.len() + sep_len;
+                match e {
+                    Error(ErrorKind::Parse(message, expected, consumed), _) => {
+                        ErrorKind::Parse(message, expected, consumed + offset).into()
+                    }
+                    _ => ErrorKind::Parse(format!("{}", e), self.b.expected(), offset),
+                }
+            })?;
         if !lhs.consumed.is_empty() && !rhs.consumed.is_empty() {
             if let Err(e) = sep {
-                return Err(e);
+                bail!(ErrorKind::Parse(format!("{}", e),
+                                       sep_parser.expected(),
+                                       lhs.consumed.len()));
             }
         }
         let consumed_len = lhs.consumed.len() +
@@ -401,6 +478,10 @@ impl<A, B, PA, PB> Parser<(A, B)> for Chain2<A, B, PA, PB>
                consumed: &input[..consumed_len],
                remaining: &input[consumed_len..],
            })
+    }
+
+    fn expected(&self) -> Vec<String> {
+        self.a.expected()
     }
 
     fn to_spec(&self) -> CommandSpec {
@@ -424,17 +505,69 @@ impl<T, TP: Parser<T> + ?Sized> OneOf<T, TP> {
 
 impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, T>> {
+        let mut errors: Vec<Error> = vec![];
+        let mut error_consumed: usize = 0;
         for p in &self.parsers {
-            if let Ok(output) = p.parse(input) {
-                return Ok(output);
+            match p.parse(input) {
+                Ok(output) => return Ok(output),
+                Err(e) => {
+                    let mut e_consumed = 0;
+                    if let Error(ErrorKind::Parse(_, _, offset), _) = e {
+                        e_consumed = offset;
+                    }
+                    if e_consumed > error_consumed {
+                        errors = vec![e];
+                        error_consumed = e_consumed;
+                    } else if e_consumed == error_consumed {
+                        errors.push(e);
+                    }
+                }
             }
         }
-        bail!("none of the parsers matched");
+
+        bail!(ErrorKind::Parse(comma_list_or(&errors
+                                                  .iter()
+                                                  .map(|e| format!("'{}'", e))
+                                                  .collect::<Vec<String>>()),
+                               errors
+                                   .iter()
+                                   .flat_map(|e| match *e {
+                                                 Error(ErrorKind::Parse(_, ref expected, _), _) => {
+                                                     expected.clone()
+                                                 }
+                                                 _ => vec![],
+                                             })
+                                   .collect(),
+                               error_consumed));
+    }
+
+    fn expected(&self) -> Vec<String> {
+        self.parsers
+            .iter()
+            .flat_map(|p| p.expected())
+            .collect()
     }
 
     fn to_spec(&self) -> CommandSpec {
         CommandSpec::OneOf(self.parsers.iter().map(|p| p.to_spec()).collect())
     }
+}
+
+fn comma_list<T: Display>(items: &[T], last: &str) -> String {
+    match items.len() {
+        0 => "".to_string(),
+        1 => format!("{}", items[0]),
+        2 => format!("{} {} {}", items[0], last, items[1]),
+        _ => format!("{}, {}", items[0], comma_list(&items[1..], last)),
+    }
+}
+
+fn comma_list_or<T: Display>(items: &[T]) -> String {
+    comma_list(items, "or")
+}
+
+fn comma_list_and<T: Display>(items: &[T]) -> String {
+    comma_list(items, "and")
 }
 
 pub struct Enum<T>
@@ -508,9 +641,26 @@ impl<T> Parser<T> for Enum<T>
                        remaining: &input[match_len..],
                    })
             }
-            0 => bail!("could not find"),
-            _ => bail!("could not match uniquely"),
+            0 => {
+                bail!(ErrorKind::Parse(format!("expected one of {}",
+                                               comma_list_or(&self.expected())),
+                                       self.expected(),
+                                       0))
+            }
+            _ => {
+                bail!(ErrorKind::Parse(format!(
+                    "{} matched {}, more input is required to uniquely match one, expected one of",
+                    comma_list_and(&matched.iter().map(|m| m.to_string()).collect::<Vec<String>>()),
+                    comma_list_or(&self.expected()),
+                ),
+                                       self.expected(),
+                                       0))
+            }
         }
+    }
+
+    fn expected(&self) -> Vec<String> {
+        self.values.iter().map(|v| v.to_string()).collect()
     }
 
     fn to_spec(&self) -> CommandSpec {
@@ -555,6 +705,10 @@ impl<T, TP: Parser<T>> Doc<T, TP> {
 impl<T, TP: Parser<T>> Parser<T> for Doc<T, TP> {
     fn parse<'a>(&self, input: &'a str) -> Result<Output<'a, T>> {
         self.parser.parse(input)
+    }
+
+    fn expected(&self) -> Vec<String> {
+        vec![self.name.to_owned()]
     }
 
     fn to_spec(&self) -> CommandSpec {
