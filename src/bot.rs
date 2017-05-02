@@ -71,7 +71,7 @@ impl<G: Gamer, B: Botter<G>> Iterator for Fuzzer<G, B> {
                               .choose(&game.whose_turn())
                               .expect("is nobody's turn");
             let pub_state = game.pub_state(Some(player));
-            let command_spec = game.command_spec(player, &self.player_names[..self.player_count]);
+            let command_spec = game.command_spec(player);
             let input = self.bot
                 .commands(player,
                           &pub_state,

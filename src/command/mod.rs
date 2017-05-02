@@ -19,4 +19,5 @@ pub enum Spec {
         desc: Option<String>,
         spec: Box<Spec>,
     },
+    Player,
 }

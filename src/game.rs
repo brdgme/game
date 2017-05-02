@@ -47,7 +47,7 @@ pub trait Gamer: Sized {
                players: &[String])
                -> Result<CommandResponse>;
     fn status(&self) -> Status;
-    fn command_spec(&self, player: usize, players: &[String]) -> command::Spec;
+    fn command_spec(&self, player: usize) -> command::Spec;
     fn player_count(&self) -> usize;
     fn player_counts() -> Vec<usize>;
 
