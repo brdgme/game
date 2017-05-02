@@ -5,9 +5,9 @@ authors = ["Michael Alexander <beefsack@gmail.com>"]
 
 [dependencies]
 brdgme-markup = { git = "https://github.com/brdgme/markup.git" }
-chrono = { version = "0.3.0", features = ["serde"] }
-serde = "0.9.13"
-serde_derive = "0.9.13"
+chrono = { version = "0.3.1", features = ["serde"] }
+serde = "1.0.0"
+serde_derive = "1.0.0"
 combine = "2.3.1"
 error-chain = "0.10.0"
 rand = "0.3.15"
