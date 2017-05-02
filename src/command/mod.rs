@@ -1,6 +1,6 @@
 pub mod parser;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum Spec {
     Int { min: Option<i32>, max: Option<i32> },
     Token(String),
