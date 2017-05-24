@@ -110,11 +110,11 @@ impl Parser<i32> for Int {
             .take_while(|&(i, c)| if i == 0 && c == '-' {
                             true
                         } else if c.is_digit(10) {
-                found_digit = true;
-                true
-            } else {
-                false
-            })
+                            found_digit = true;
+                            true
+                        } else {
+                            false
+                        })
             .count();
         if !found_digit {
             bail!(ErrorKind::Parse(None, self.expected(names), 0));
@@ -441,9 +441,7 @@ impl<A, B, PA, PB> Parser<(A, B)> for Chain2<A, B, PA, PB>
         let sep_parser = Whitespace {};
         let sep = sep_parser.parse(lhs.remaining, names);
         let sep_len = sep.as_ref().map(|o| o.consumed.len()).unwrap_or(0);
-        let remaining = sep.as_ref()
-            .map(|s| s.remaining)
-            .unwrap_or(lhs.remaining);
+        let remaining = sep.as_ref().map(|s| s.remaining).unwrap_or(lhs.remaining);
         let rhs = self.b
             .parse(remaining, names)
             .map_err(|e| {
@@ -662,11 +660,7 @@ impl<T> Parser<T> for Enum<T>
 
     fn to_spec(&self) -> CommandSpec {
         CommandSpec::Enum {
-            values: self.values
-                .iter()
-                .cloned()
-                .map(|v| v.to_string())
-                .collect(),
+            values: self.values.iter().cloned().map(|v| v.to_string()).collect(),
             exact: self.exact,
         }
     }
@@ -926,18 +920,16 @@ mod tests {
 
     #[test]
     fn test_one_of_works() {
-        let parsers: Vec<Box<Parser<String>>> = vec![Box::new(Token::new("blah")),
-                                                     Box::new(Map::new(Many::any(Token::new("fart")),
-                                                                       |v| v.join(" ")))];
+        let parsers: Vec<Box<Parser<String>>> =
+            vec![Box::new(Token::new("blah")),
+                 Box::new(Map::new(Many::any(Token::new("fart")), |v| v.join(" ")))];
         let parser = OneOf::new(parsers);
         assert_eq!(Output {
                        value: "blah".to_string(),
                        consumed: "blah",
                        remaining: "",
                    },
-                   parser
-                       .parse("blah", &[])
-                       .expect("expected 'blah' to parse"));
+                   parser.parse("blah", &[]).expect("expected 'blah' to parse"));
         assert_eq!(Output {
                        value: "fart fart fart".to_string(),
                        consumed: "fart, fart, fart",
@@ -968,9 +960,7 @@ mod tests {
                        consumed: "fart",
                        remaining: "",
                    },
-                   parser
-                       .parse("fart", &[])
-                       .expect("expected 'fart' to parse"));
+                   parser.parse("fart", &[]).expect("expected 'fart' to parse"));
         assert_eq!(Output {
                        value: "farty",
                        consumed: "farty",
@@ -984,8 +974,6 @@ mod tests {
                        consumed: "DoG",
                        remaining: "",
                    },
-                   parser
-                       .parse("DoG", &[])
-                       .expect("expected 'DoG' to parse"));
+                   parser.parse("DoG", &[]).expect("expected 'DoG' to parse"));
     }
 }

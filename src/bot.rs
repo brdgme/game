@@ -55,10 +55,7 @@ impl<G: Gamer, B: Botter<G>> Iterator for Fuzzer<G, B> {
     type Item = ();
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.game
-               .as_ref()
-               .map(|g| g.is_finished())
-               .unwrap_or(true) {
+        if self.game.as_ref().map(|g| g.is_finished()).unwrap_or(true) {
             self.game_count += 1;
             self.player_count = *self.rng
                                      .choose(&self.player_counts)
@@ -71,7 +68,7 @@ impl<G: Gamer, B: Botter<G>> Iterator for Fuzzer<G, B> {
                               .choose(&game.whose_turn())
                               .expect("is nobody's turn");
             let pub_state = game.pub_state(Some(player));
-            let command_spec = game.command_spec(player);
+            let command_spec = game.command_spec(player).expect("expected a command spec");
             let input = self.bot
                 .commands(player,
                           &pub_state,
