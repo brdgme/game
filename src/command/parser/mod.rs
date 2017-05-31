@@ -5,8 +5,11 @@ use std::cmp;
 use std::collections::HashSet;
 use std::fmt::Display;
 
+pub mod chain;
+
 use errors::*;
 use command::Spec as CommandSpec;
+pub use self::chain::*;
 
 const MANY_DELIM: &'static str = ",";
 
@@ -319,9 +322,8 @@ impl<T, TP> Parser<Vec<T>> for Many<T, TP>
         }
         let mut first = true;
         let mut offset = 0;
-        let delim = Chain2::new(Opt::new(Whitespace {}),
-                                Chain2::new(Token::new(self.delim.to_owned()),
-                                            Opt::new(Whitespace {})));
+        let delim = Chain2::new(Opt::new(Space {}),
+                                Chain2::new(Token::new(self.delim.to_owned()), Opt::new(Space {})));
         'outer: loop {
             let mut inner_offset = offset;
             if !first {
@@ -384,9 +386,9 @@ impl<T, TP> Parser<Vec<T>> for Many<T, TP>
     }
 }
 
-struct Whitespace {}
+struct Space {}
 
-impl Parser<String> for Whitespace {
+impl Parser<String> for Space {
     fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, String>> {
         let consumed = input.chars().take_while(|c| c.is_whitespace()).count();
         if consumed == 0 {
@@ -404,74 +406,7 @@ impl Parser<String> for Whitespace {
     }
 
     fn to_spec(&self) -> CommandSpec {
-        unimplemented!();
-    }
-}
-
-pub struct Chain2<A, B, PA, PB>
-    where PA: Parser<A>,
-          PB: Parser<B>
-{
-    pub a: PA,
-    pub b: PB,
-    a_type: PhantomData<A>,
-    b_type: PhantomData<B>,
-}
-
-impl<A, B, PA, PB> Chain2<A, B, PA, PB>
-    where PA: Parser<A>,
-          PB: Parser<B>
-{
-    pub fn new(a: PA, b: PB) -> Self {
-        Self {
-            a: a,
-            b: b,
-            a_type: PhantomData,
-            b_type: PhantomData,
-        }
-    }
-}
-
-impl<A, B, PA, PB> Parser<(A, B)> for Chain2<A, B, PA, PB>
-    where PA: Parser<A>,
-          PB: Parser<B>
-{
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, (A, B)>> {
-        let lhs = self.a.parse(input, names)?;
-        let sep_parser = Whitespace {};
-        let sep = sep_parser.parse(lhs.remaining, names);
-        let sep_len = sep.as_ref().map(|o| o.consumed.len()).unwrap_or(0);
-        let remaining = sep.as_ref().map(|s| s.remaining).unwrap_or(lhs.remaining);
-        let rhs = self.b
-            .parse(remaining, names)
-            .map_err(|e| {
-                let offset = lhs.consumed.len() + sep_len;
-                match e {
-                    Error(ErrorKind::Parse(message, expected, consumed), _) => {
-                        ErrorKind::Parse(message, expected, consumed + offset).into()
-                    }
-                    _ => ErrorKind::Parse(Some(e.to_string()), self.b.expected(names), offset),
-                }
-            })?;
-        if !lhs.consumed.is_empty() && !rhs.consumed.is_empty() && sep.is_err() {
-            bail!(ErrorKind::Parse(None, sep_parser.expected(names), lhs.consumed.len()));
-        }
-        let consumed_len = lhs.consumed.len() +
-                           sep.as_ref().map(|s| s.consumed.len()).unwrap_or(0) +
-                           rhs.consumed.len();
-        Ok(Output {
-               value: (lhs.value, rhs.value),
-               consumed: &input[..consumed_len],
-               remaining: &input[consumed_len..],
-           })
-    }
-
-    fn expected(&self, names: &[String]) -> Vec<String> {
-        self.a.expected(names)
-    }
-
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Chain(vec![self.a.to_spec(), self.b.to_spec()])
+        CommandSpec::Space
     }
 }
 
@@ -754,6 +689,39 @@ impl Parser<usize> for Player {
     }
 }
 
+pub struct AfterSpace<T, TP: Parser<T>> {
+    pub parser: TP,
+    t_type: PhantomData<T>,
+}
+
+impl<T, TP: Parser<T>> AfterSpace<T, TP> {
+    pub fn new(parser: TP) -> Self {
+        Self {
+            parser: parser,
+            t_type: PhantomData,
+        }
+    }
+}
+
+impl<T, TP: Parser<T>> Parser<T> for AfterSpace<T, TP> {
+    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>> {
+        let pair = chain_2(&Space {}, &self.parser, input, names)?;
+        Ok(Output {
+               value: pair.value.1,
+               consumed: pair.consumed,
+               remaining: pair.remaining,
+           })
+    }
+
+    fn expected(&self, names: &[String]) -> Vec<String> {
+        self.parser.expected(names)
+    }
+
+    fn to_spec(&self) -> CommandSpec {
+        CommandSpec::Chain(vec![CommandSpec::Space, self.parser.to_spec()])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -817,26 +785,6 @@ mod tests {
                    parser
                        .parse("00123bacon", &[])
                        .expect("expected '00123bacon' to parse"))
-    }
-
-    #[test]
-    fn chain2_parser_works() {
-        let parser = Chain2::new(Int {
-                                     min: None,
-                                     max: None,
-                                 },
-                                 Int {
-                                     min: None,
-                                     max: None,
-                                 });
-        assert_eq!(Output {
-                       value: (123, 456),
-                       consumed: "123 456",
-                       remaining: "  chairs",
-                   },
-                   parser
-                       .parse("123 456  chairs", &[])
-                       .expect("expected '123 456  chairs' to parse"))
     }
 
     #[test]
@@ -975,5 +923,21 @@ mod tests {
                        remaining: "",
                    },
                    parser.parse("DoG", &[]).expect("expected 'DoG' to parse"));
+    }
+
+    #[test]
+    fn after_space_parser_works() {
+        let parser = AfterSpace::new(Token::new("blah"));
+        parser
+            .parse("blah", &[])
+            .expect_err("expected 'blah' to produce error");
+        assert_eq!(Output {
+                       value: "blah".to_string(),
+                       consumed: " BlAh",
+                       remaining: "bacon",
+                   },
+                   parser
+                       .parse(" BlAhbacon", &[])
+                       .expect("expected ' BlAhbacon' to parse"));
     }
 }

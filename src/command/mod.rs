@@ -20,4 +20,5 @@ pub enum Spec {
         spec: Box<Spec>,
     },
     Player,
+    Space,
 }
