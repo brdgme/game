@@ -109,6 +109,3 @@ pub trait Gamer: Sized {
 pub trait Renderer {
     fn render(&self) -> Vec<Node>;
 }
-
-#[test]
-fn it_works() {}

@@ -1,4 +1,5 @@
 pub mod parser;
+pub mod doc;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum Spec {
