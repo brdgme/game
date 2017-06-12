@@ -446,15 +446,14 @@ impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
             }
         }
 
-        let error_messages =
-            &errors
-                 .iter()
-                 .filter_map(|e| if let Error(ErrorKind::Parse(ref m, ..), ..) = *e {
-                                 m.to_owned()
-                             } else {
-                                 None
-                             })
-                 .collect::<Vec<String>>();
+        let error_messages = &errors
+            .iter()
+            .filter_map(|e| if let Error(ErrorKind::Parse(ref m, ..), ..) = *e {
+                            m.to_owned()
+                        } else {
+                            None
+                        })
+            .collect::<Vec<String>>();
         bail!(ErrorKind::Parse(if error_messages.is_empty() {
                                    None
                                } else {
@@ -574,12 +573,14 @@ impl<T> Parser<T> for Enum<T>
             }
             0 => bail!(ErrorKind::Parse(None, self.expected(names), 0)),
             _ => {
-                bail!(ErrorKind::Parse(Some(format!(
+                bail!(ErrorKind::Parse(
+                    Some(format!(
                     "matched {}, more input is required to uniquely match one",
                     comma_list_and(&matched.iter().map(|m| m.to_string()).collect::<Vec<String>>()),
                 )),
-                                       self.expected(names),
-                                       0))
+                    self.expected(names),
+                    0,
+                ))
             }
         }
     }

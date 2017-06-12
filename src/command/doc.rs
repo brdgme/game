@@ -5,43 +5,49 @@ use command::Spec;
 
 #[derive(Clone)]
 pub struct Opts {
-    pub split_one_of: bool,
-    pub output_desc: bool,
     pub name: Option<String>,
 }
 
 impl Default for Opts {
     fn default() -> Self {
-        Self {
-            split_one_of: true,
-            output_desc: true,
-            name: None,
-        }
+        Self { name: None }
     }
 }
 
 impl Spec {
-    pub fn doc(&self, opts: &Opts) -> (Vec<Node>, Option<String>) {
+    pub fn doc(&self, opts: &Opts) -> Vec<(Vec<Node>, Option<String>)> {
         match *self {
-            Spec::Int { min, max } => (doc_int(min, max), None),
-            Spec::Token(ref token) => (doc_token(token), None),
-            Spec::Enum { ref values, .. } => (doc_enum(values, opts), None),
-            Spec::OneOf(ref specs) => (doc_one_of(specs, opts), None),
-            Spec::Chain(ref specs) => doc_chain(specs, opts),
+            Spec::Int { min, max } => vec![(doc_int(min, max), None)],
+            Spec::Token(ref token) => vec![(doc_token(token), None)],
+            Spec::Enum { ref values, .. } => vec![(doc_enum(values, opts), None)],
+            Spec::OneOf(ref specs) => doc_one_of(specs, opts),
+            Spec::Chain(ref specs) => vec![doc_chain(specs, opts)],
             Spec::Many {
                 ref spec,
                 min,
                 max,
                 ref delim,
-            } => unimplemented!(),
-            Spec::Opt(ref spec) => doc_opt(spec, opts),
+            } => {
+                doc_many(spec, min, max, delim, opts)
+                    .map(|d| vec![d])
+                    .unwrap_or_else(|| vec![])
+            }
+            Spec::Opt(ref spec) => {
+                doc_opt(spec, opts)
+                    .map(|d| vec![d])
+                    .unwrap_or_else(|| vec![])
+            }
             Spec::Doc {
                 ref name,
                 ref desc,
                 ref spec,
-            } => doc_doc(name, desc, spec, opts),
-            Spec::Player => (vec![Node::text("player")], None),
-            Spec::Space => (vec![Node::text(" ")], None),
+            } => {
+                doc_doc(name, desc, spec)
+                    .map(|d| vec![d])
+                    .unwrap_or_else(|| vec![])
+            }
+            Spec::Player => vec![(vec![Node::text("player")], None)],
+            Spec::Space => vec![(vec![Node::text(" ")], None)],
         }
     }
 }
@@ -68,37 +74,32 @@ fn doc_enum(values: &[String], opts: &Opts) -> Vec<Node> {
     vec![Node::text(format!("[{}]", values.join(" | ")))]
 }
 
-fn doc_one_of(specs: &[Spec], opts: &Opts) -> Vec<Node> {
-    let mut output: Vec<Node> = vec![];
-    if !opts.split_one_of {
-        output.push(Node::text("["));
-    }
-    for (k, s) in specs.iter().enumerate() {
-        let (child_doc, desc_opt) = s.doc(&Opts {
-                                              split_one_of: false,
-                                              ..opts.clone()
-                                          });
-        if opts.split_one_of {
-            // Split mode for top level, output a description above the child spec doc.
-            if k > 0 {
-                output.push(Node::text("\n"));
+fn join_docs(docs: &[(Vec<Node>, Option<String>)]) -> Option<(Vec<Node>, Option<String>)> {
+    match docs.len() {
+        0 => None,
+        1 => Some(docs[0].to_owned()),
+        _ => {
+            let mut desc: Option<String> = None;
+            let mut nodes: Vec<Node> = vec![Node::text("[")];
+            for (i, &(ref doc, ref desc_opt)) in docs.iter().enumerate() {
+                if i == 0 {
+                    desc = desc_opt.to_owned();
+                } else {
+                    nodes.push(Node::text(" | "));
+                }
+                nodes.extend(doc.to_owned());
             }
-            if let Some(desc) = desc_opt {
-                output.push(Node::Fg(GREY.into(), vec![Node::text(desc)]));
-                output.push(Node::text("\n  "));
-            }
-        } else {
-            // Flat mode, ignore child spec desc.
-            if k > 0 {
-                output.push(Node::text(" | "));
-            }
+            nodes.push(Node::text("]"));
+            Some((nodes, desc))
         }
-        output.extend(child_doc);
     }
-    if !opts.split_one_of {
-        output.push(Node::text("]"));
-    }
-    output
+}
+
+fn doc_one_of(specs: &[Spec], opts: &Opts) -> Vec<(Vec<Node>, Option<String>)> {
+    specs
+        .iter()
+        .filter_map(|s| join_docs(&s.doc(opts)))
+        .collect()
 }
 
 fn doc_chain(specs: &[Spec], opts: &Opts) -> (Vec<Node>, Option<String>) {
@@ -106,102 +107,87 @@ fn doc_chain(specs: &[Spec], opts: &Opts) -> (Vec<Node>, Option<String>) {
     (specs
          .iter()
          .enumerate()
-         .flat_map(|(i, s)| {
-                       let (doc, desc_opt) = s.doc(opts);
-                       if i == 0 {
-                           desc = desc_opt;
+         .flat_map(|(i, s)| match join_docs(&s.doc(opts)) {
+                       Some((doc, desc_opt)) => {
+                           if i == 0 {
+                               desc = desc_opt;
+                           }
+                           doc
                        }
-                       doc
+                       None => vec![],
                    })
          .collect(),
      desc)
 }
 
-fn doc_opt(spec: &Spec, opts: &Opts) -> (Vec<Node>, Option<String>) {
-    let (mut doc, desc) = spec.doc(opts);
-    doc.push(Node::text("?"));
-    (doc, desc)
+fn doc_many(spec: &Spec,
+            min: Option<usize>,
+            max: Option<usize>,
+            _delim: &str,
+            opts: &Opts)
+            -> Option<(Vec<Node>, Option<String>)> {
+    join_docs(&spec.doc(opts)).and_then(|(mut doc, desc)| match (min, max) {
+                                            // Some combinations expect nothing.
+                                            (_, Some(0)) => None,
+                                            (Some(min), Some(max)) if min > max => None,
+                                            // Like optional
+                                            (Some(0), Some(1)) |
+                                            (None, Some(1)) => {
+                                                doc.push(Node::text("?"));
+                                                Some((doc, desc))
+                                            }
+                                            // Exactly 1
+                                            (Some(1), Some(1)) => Some((doc, desc)),
+                                            // 0 or more
+                                            (None, _) | (Some(0), _) => {
+                                                doc.push(Node::text("*"));
+                                                Some((doc, desc))
+                                            }
+                                            // 1 or more
+                                            (Some(1), _) => {
+                                                doc.push(Node::text("+"));
+                                                Some((doc, desc))
+                                            }
+                                            // Other "or more" prepended with min
+                                            (Some(min), None) => {
+                                                let mut prepended = vec![Node::text(format!("({}+)",
+                                                                                            min))];
+                                                prepended.extend(doc);
+                                                Some((prepended, desc))
+                                            }
+                                            // All others displayed as range
+                                            (min, Some(max)) => {
+                                                doc.push(Node::text(format!("({}-{})",
+                                                                            min.unwrap_or(0),
+                                                                            max)));
+                                                Some((doc, desc))
+                                            }
+                                        })
 }
 
-fn doc_doc(name: &str,
-           desc: &Option<String>,
-           spec: &Spec,
-           opts: &Opts)
-           -> (Vec<Node>, Option<String>) {
-    let (doc, child_desc) = spec.doc(&Opts {
-                                         name: Some(name.to_owned()),
-                                         ..*opts
-                                     });
-    (doc, desc.to_owned().or(child_desc))
+fn doc_opt(spec: &Spec, opts: &Opts) -> Option<(Vec<Node>, Option<String>)> {
+    join_docs(&spec.doc(opts)).map(|(mut doc, desc)| {
+                                       doc.push(Node::text("?"));
+                                       (doc, desc)
+                                   })
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use brdgme_markup::{ansi, transform};
+fn doc_doc(name: &str, desc: &Option<String>, spec: &Spec) -> Option<(Vec<Node>, Option<String>)> {
+    join_docs(&spec.doc(&Opts { name: Some(name.to_owned()) }))
+        .map(|(doc, child_desc)| (doc, desc.to_owned().or(child_desc)))
+}
 
-    #[test]
-    fn it_works() {
-        println!("{}",
-                 ansi(&transform(&Spec::OneOf(vec![Spec::Doc {
-                                                     name: "play".to_string(),
-                                                     desc: Some("play a card to an expedition"
-                                                                    .to_string()),
-                                                     spec: Box::new(Spec::Chain(vec![
-                    Spec::Token("play".to_string()),
-                    Spec::Space,
-                    Spec::Doc {
-                        name: "card".to_string(),
-                        desc: Some("the card to play".to_string()),
-                        spec: Box::new(Spec::Enum {
-                            values: vec![
-                                "BX".to_string(),
-                                "B10".to_string(),
-                                "G3".to_string(),
-                            ],
-                            exact: true,
-                        }),
-                    },
-                    Spec::Space,
-                    Spec::Token("from".to_string()),
-                    Spec::Space,
-                    Spec::Doc {
-                        name: "card".to_string(),
-                        desc: Some("the card to play".to_string()),
-                        spec: Box::new(Spec::Enum {
-                            values: vec![
-                                "BX".to_string(),
-                                "B10".to_string(),
-                                "G3".to_string(),
-                            ],
-                            exact: true,
-                        }),
-                    },
-                ])),
-                                                 },
-                                                 Spec::Doc {
-                                                     name: "discard".to_string(),
-                                                     desc: Some("discard a card to an discard pile"
-                                                                    .to_string()),
-                                                     spec: Box::new(Spec::Chain(vec![
-                    Spec::Token("discard".to_string()),
-                    Spec::Space,
-                    Spec::Doc {
-                        name: "card".to_string(),
-                        desc: Some("the card to discard".to_string()),
-                        spec: Box::new(Spec::Enum {
-                            values: vec![
-                                "BX".to_string(),
-                                "B10".to_string(),
-                                "G3".to_string(),
-                            ],
-                            exact: true,
-                        }),
-                    },
-                ])),
-                                                 }])
-                                        .doc(&Opts::default())
-                                        .0,
-                                &[])));
+pub fn render(docs: &[(Vec<Node>, Option<String>)]) -> Vec<Node> {
+    let mut output: Vec<Node> = vec![];
+    for (i, &(ref doc, ref desc)) in docs.iter().enumerate() {
+        if i > 0 {
+            output.push(Node::text("\n"));
+        }
+        if let Some(ref desc) = *desc {
+            output.push(Node::Fg(GREY.into(), vec![Node::text(desc.to_owned())]));
+            output.push(Node::text("\n  "));
+        }
+        output.extend(doc.to_owned());
     }
+    output
 }
