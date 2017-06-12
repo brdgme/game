@@ -1,5 +1,4 @@
 extern crate chrono;
-extern crate brdgme_markup;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde;
@@ -10,6 +9,9 @@ extern crate rand;
 #[macro_use]
 extern crate log;
 extern crate unicase;
+
+extern crate brdgme_markup;
+extern crate brdgme_color;
 
 pub mod game;
 pub mod game_log;

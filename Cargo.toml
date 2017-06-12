@@ -5,6 +5,7 @@ authors = ["Michael Alexander <beefsack@gmail.com>"]
 
 [dependencies]
 brdgme-markup = { git = "https://github.com/brdgme/markup.git" }
+brdgme-color = { git = "https://github.com/brdgme/color.git" }
 chrono = { version = "0.3.1", features = ["serde"] }
 serde = "1.0.0"
 serde_derive = "1.0.0"
