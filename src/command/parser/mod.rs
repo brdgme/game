@@ -1,7 +1,6 @@
 use unicase::UniCase;
 
 use std::marker::PhantomData;
-use std::cmp;
 use std::collections::HashSet;
 use std::fmt::Display;
 
@@ -446,14 +445,15 @@ impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
             }
         }
 
-        let error_messages = &errors
-            .iter()
-            .filter_map(|e| if let Error(ErrorKind::Parse(ref m, ..), ..) = *e {
-                            m.to_owned()
-                        } else {
-                            None
-                        })
-            .collect::<Vec<String>>();
+        let error_messages =
+            &errors
+                 .iter()
+                 .filter_map(|e| if let Error(ErrorKind::Parse(ref m, ..), ..) = *e {
+                                 m.to_owned()
+                             } else {
+                                 None
+                             })
+                 .collect::<Vec<String>>();
         bail!(ErrorKind::Parse(if error_messages.is_empty() {
                                    None
                                } else {
@@ -525,39 +525,55 @@ impl<T> Enum<T>
     }
 }
 
+fn shared_prefix(s1: &str, s2: &str) -> usize {
+    let mut s1i = s1.chars();
+    let mut s2i = s2.chars();
+    let mut len = 0usize;
+    loop {
+        match (s1i.next(), s2i.next()) {
+            (Some(s1c), Some(s2c)) => {
+                if s1c != s2c {
+                    return len;
+                }
+                len += 1;
+            }
+            _ => return len,
+        }
+    }
+}
+
 impl<T> Parser<T> for Enum<T>
     where T: ToString + Clone
 {
     fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>> {
+        let input_lower = input.to_lowercase();
         let mut matched: Vec<&T> = vec![];
         let mut match_len: usize = 0;
         // Exact matches are prioritised, a shorter full match will happen over a longer partial
         // match.
         let mut full_match = false;
-        let i_len = input.len();
         // Track which values have been searched to avoid duplicates.
         let mut searched: HashSet<String> = HashSet::new();
         for v in &self.values {
-            let v_str = v.clone().to_string();
+            let v_str = v.clone().to_string().to_lowercase();
             if searched.contains(&v_str) {
                 // This is a duplicate, skip it.
                 continue;
             }
             searched.insert(v_str.clone());
             let v_len = v_str.len();
-            let cmp_len = cmp::min(i_len, v_len);
-            if self.exact && cmp_len < v_len {
+            let matching = shared_prefix(&input_lower, &v_str);
+            if self.exact && matching < v_len {
                 // The input isn't long enough and we require exact match, skip it.
                 continue;
             }
-            if cmp_len >= match_len && (!full_match || cmp_len == v_len) &&
-               UniCase(input) == UniCase(&v_str[..cmp_len]) {
-                if cmp_len == v_len {
+            if matching > 0 && matching >= match_len && (!full_match || matching == v_len) {
+                if matching == v_len {
                     full_match = true
                 }
-                if cmp_len > match_len {
+                if matching > match_len {
                     matched = vec![v];
-                    match_len = cmp_len;
+                    match_len = matching;
                 } else {
                     matched.push(v);
                 }
@@ -573,14 +589,12 @@ impl<T> Parser<T> for Enum<T>
             }
             0 => bail!(ErrorKind::Parse(None, self.expected(names), 0)),
             _ => {
-                bail!(ErrorKind::Parse(
-                    Some(format!(
+                bail!(ErrorKind::Parse(Some(format!(
                     "matched {}, more input is required to uniquely match one",
                     comma_list_and(&matched.iter().map(|m| m.to_string()).collect::<Vec<String>>()),
                 )),
-                    self.expected(names),
-                    0,
-                ))
+                                       self.expected(names),
+                                       0))
             }
         }
     }
@@ -921,9 +935,11 @@ mod tests {
         assert_eq!(Output {
                        value: "dog",
                        consumed: "DoG",
-                       remaining: "",
+                       remaining: "log",
                    },
-                   parser.parse("DoG", &[]).expect("expected 'DoG' to parse"));
+                   parser
+                       .parse("DoGlog", &[])
+                       .expect("expected 'DoGlog' to parse"));
     }
 
     #[test]

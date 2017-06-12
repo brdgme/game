@@ -73,10 +73,12 @@ pub fn to_game_error<S>(err: &ParseError<S>) -> ErrorKind
     let mut written = false;
 
     // Output messages if there are any.
-    for message in err.errors.iter().filter(|e| match **e {
-                                                Error::Message(_) => true,
-                                                _ => false,
-                                            }) {
+    for message in err.errors
+            .iter()
+            .filter(|e| match **e {
+                        Error::Message(_) => true,
+                        _ => false,
+                    }) {
         writeln!(s, "{}", message).unwrap();
         written = true;
     }
@@ -86,10 +88,12 @@ pub fn to_game_error<S>(err: &ParseError<S>) -> ErrorKind
 
     // Output expected if there are any.
     let expected = || {
-        err.errors.iter().filter_map(|e| match *e {
-                                         Error::Expected(ref ee) => Some(ee),
-                                         _ => None,
-                                     })
+        err.errors
+            .iter()
+            .filter_map(|e| match *e {
+                            Error::Expected(ref ee) => Some(ee),
+                            _ => None,
+                        })
     };
     let expected_count = expected().count();
     for (i, err_message) in expected().enumerate() {
@@ -101,7 +105,7 @@ pub fn to_game_error<S>(err: &ParseError<S>) -> ErrorKind
                    _ => " or",
                },
                err_message)
-            .unwrap();
+                .unwrap();
         written = true;
     }
     if written {
