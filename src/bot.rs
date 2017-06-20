@@ -5,12 +5,13 @@ use command::Spec as CommandSpec;
 use errors::*;
 
 pub trait Botter<T: Gamer> {
-    fn commands(&mut self,
-                player: usize,
-                pub_state: &T::PubState,
-                players: &[String],
-                command_spec: &CommandSpec)
-                -> Vec<String>;
+    fn commands(
+        &mut self,
+        player: usize,
+        pub_state: &T::PubState,
+        players: &[String],
+        command_spec: &CommandSpec,
+    ) -> Vec<String>;
 }
 
 pub struct Fuzzer<G: Gamer, B: Botter<G>> {
@@ -44,10 +45,12 @@ impl<G: Gamer, B: Botter<G>> Fuzzer<G, B> {
     }
 
     pub fn status(&self) -> String {
-        format!("Games: {}\tCommands: {}\tInvalid inputs: {}",
-                self.game_count,
-                self.command_count,
-                self.invalid_input_count)
+        format!(
+            "Games: {}\tCommands: {}\tInvalid inputs: {}",
+            self.game_count,
+            self.command_count,
+            self.invalid_input_count
+        )
     }
 }
 
@@ -58,24 +61,27 @@ impl<G: Gamer, B: Botter<G>> Iterator for Fuzzer<G, B> {
         if self.game.as_ref().map(|g| g.is_finished()).unwrap_or(true) {
             self.game_count += 1;
             self.player_count = *self.rng
-                                     .choose(&self.player_counts)
-                                     .expect("no player counts for game type");
-            self.game = Some(G::new(self.player_count)
-                                 .expect("failed to create new game")
-                                 .0);
+                .choose(&self.player_counts)
+                .expect("no player counts for game type");
+            self.game = Some(
+                G::new(self.player_count)
+                    .expect("failed to create new game")
+                    .0,
+            );
         } else if let Some(ref mut game) = self.game {
             let player = *self.rng
-                              .choose(&game.whose_turn())
-                              .expect("is nobody's turn");
+                .choose(&game.whose_turn())
+                .expect("is nobody's turn");
             let pub_state = game.pub_state(Some(player));
             let command_spec = game.command_spec(player).expect("expected a command spec");
-            let input = self.bot
-                .commands(player,
-                          &pub_state,
-                          &self.player_names[..self.player_count],
-                          &command_spec)
+            let input = self.bot.commands(
+                player,
+                &pub_state,
+                &self.player_names[..self.player_count],
+                &command_spec,
+            )
                 [0]
-                    .to_owned();
+                .to_owned();
             let cmd_res = game.command(player, &input, &self.player_names);
             self.command_count += 1;
             match cmd_res {
@@ -85,10 +91,12 @@ impl<G: Gamer, B: Botter<G>> Iterator for Fuzzer<G, B> {
                     trace!("invalid input '{}' for player {}: {}", input, player, e)
                 }
                 _ => {
-                    panic!("error running command '{}' for player {}, {:?}",
-                           input,
-                           player,
-                           cmd_res)
+                    panic!(
+                        "error running command '{}' for player {}, {:?}",
+                        input,
+                        player,
+                        cmd_res
+                    )
                 }
             }
         }

@@ -1,11 +1,11 @@
-use game_log::Log;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use brdgme_markup::Node;
 
-use std::collections::{HashSet, HashMap};
+use std::collections::HashMap;
 
+use game_log::Log;
 use command;
 use errors::*;
 
@@ -13,7 +13,7 @@ use errors::*;
 pub enum Stat {
     Int(i32),
     Float(f32),
-    Set(HashSet<String>),
+    List(Vec<String>),
     Fraction(i32, i32),
 }
 
@@ -41,11 +41,12 @@ pub trait Gamer: Sized {
 
     fn new(players: usize) -> Result<(Self, Vec<Log>)>;
     fn pub_state(&self, player: Option<usize>) -> Self::PubState;
-    fn command(&mut self,
-               player: usize,
-               input: &str,
-               players: &[String])
-               -> Result<CommandResponse>;
+    fn command(
+        &mut self,
+        player: usize,
+        input: &str,
+        players: &[String],
+    ) -> Result<CommandResponse>;
     fn status(&self) -> Status;
     fn command_spec(&self, player: usize) -> Option<command::Spec>;
     fn player_count(&self) -> usize;

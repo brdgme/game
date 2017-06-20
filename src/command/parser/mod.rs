@@ -31,7 +31,8 @@ pub struct Token {
 
 impl Token {
     pub fn new<T>(token: T) -> Self
-        where T: Into<String>
+    where
+        T: Into<String>,
     {
         Self { token: token.into() }
     }
@@ -44,10 +45,10 @@ impl Parser<String> for Token {
             bail!(ErrorKind::Parse(None, self.expected(names), 0));
         }
         Ok(Output {
-               value: self.token.to_owned(),
-               consumed: &input[..t_len],
-               remaining: &input[t_len..],
-           })
+            value: self.token.to_owned(),
+            consumed: &input[..t_len],
+            remaining: &input[t_len..],
+        })
     }
 
     fn expected(&self, _names: &[String]) -> Vec<String> {
@@ -110,44 +111,48 @@ impl Parser<i32> for Int {
             .chars()
             .enumerate()
             .take_while(|&(i, c)| if i == 0 && c == '-' {
-                            true
-                        } else if c.is_digit(10) {
-                            found_digit = true;
-                            true
-                        } else {
-                            false
-                        })
+                true
+            } else if c.is_digit(10) {
+                found_digit = true;
+                true
+            } else {
+                false
+            })
             .count();
         if !found_digit {
             bail!(ErrorKind::Parse(None, self.expected(names), 0));
         }
         let consumed = &input[..consumed_count];
-        let value: i32 = consumed
-            .parse()
-            .chain_err(|| {
-                           ErrorKind::Parse(Some(format!("failed to parse '{}'", consumed)),
-                                            self.expected(names),
-                                            0)
-                       })?;
+        let value: i32 = consumed.parse().chain_err(|| {
+            ErrorKind::Parse(
+                Some(format!("failed to parse '{}'", consumed)),
+                self.expected(names),
+                0,
+            )
+        })?;
         if let Some(min) = self.min {
             if value < min {
-                bail!(ErrorKind::Parse(Some(format!("{} is too low", value)),
-                                       self.expected(names),
-                                       0));
+                bail!(ErrorKind::Parse(
+                    Some(format!("{} is too low", value)),
+                    self.expected(names),
+                    0,
+                ));
             }
         }
         if let Some(max) = self.max {
             if value > max {
-                bail!(ErrorKind::Parse(Some(format!("{} is too high", value)),
-                                       self.expected(names),
-                                       0));
+                bail!(ErrorKind::Parse(
+                    Some(format!("{} is too high", value)),
+                    self.expected(names),
+                    0,
+                ));
             }
         }
         Ok(Output {
-               value: value,
-               consumed: consumed,
-               remaining: &input[consumed_count..],
-           })
+            value: value,
+            consumed: consumed,
+            remaining: &input[consumed_count..],
+        })
     }
 
     fn expected(&self, _names: &[String]) -> Vec<String> {
@@ -163,8 +168,9 @@ impl Parser<i32> for Int {
 }
 
 pub struct Map<T, O, F, TP>
-    where F: Fn(T) -> O,
-          TP: Parser<T>
+where
+    F: Fn(T) -> O,
+    TP: Parser<T>,
 {
     pub parser: TP,
     pub map: F,
@@ -173,8 +179,9 @@ pub struct Map<T, O, F, TP>
 }
 
 impl<T, O, F, TP> Map<T, O, F, TP>
-    where F: Fn(T) -> O,
-          TP: Parser<T>
+where
+    F: Fn(T) -> O,
+    TP: Parser<T>,
 {
     pub fn new(parser: TP, map: F) -> Self {
         Self {
@@ -187,16 +194,17 @@ impl<T, O, F, TP> Map<T, O, F, TP>
 }
 
 impl<T, O, F, TP> Parser<O> for Map<T, O, F, TP>
-    where F: Fn(T) -> O,
-          TP: Parser<T>
+where
+    F: Fn(T) -> O,
+    TP: Parser<T>,
 {
     fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, O>> {
         let child_parse = self.parser.parse(input, names)?;
         Ok(Output {
-               value: (self.map)(child_parse.value),
-               consumed: child_parse.consumed,
-               remaining: child_parse.remaining,
-           })
+            value: (self.map)(child_parse.value),
+            consumed: child_parse.consumed,
+            remaining: child_parse.remaining,
+        })
     }
 
     fn expected(&self, names: &[String]) -> Vec<String> {
@@ -209,14 +217,16 @@ impl<T, O, F, TP> Parser<O> for Map<T, O, F, TP>
 }
 
 pub struct Opt<T, TP>
-    where TP: Parser<T>
+where
+    TP: Parser<T>,
 {
     pub parser: TP,
     t_type: PhantomData<T>,
 }
 
 impl<T, TP> Opt<T, TP>
-    where TP: Parser<T>
+where
+    TP: Parser<T>,
 {
     pub fn new(parser: TP) -> Self {
         Self {
@@ -227,25 +237,26 @@ impl<T, TP> Opt<T, TP>
 }
 
 impl<T, TP> Parser<Option<T>> for Opt<T, TP>
-    where TP: Parser<T>
+where
+    TP: Parser<T>,
 {
     fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, Option<T>>> {
         Ok(match self.parser.parse(input, names) {
-               Ok(output) => {
-                   Output {
-                       value: Some(output.value),
-                       consumed: output.consumed,
-                       remaining: output.remaining,
-                   }
-               }
-               Err(_) => {
-                   Output {
-                       value: None,
-                       consumed: &input[..0],
-                       remaining: input,
-                   }
-               }
-           })
+            Ok(output) => {
+                Output {
+                    value: Some(output.value),
+                    consumed: output.consumed,
+                    remaining: output.remaining,
+                }
+            }
+            Err(_) => {
+                Output {
+                    value: None,
+                    consumed: &input[..0],
+                    remaining: input,
+                }
+            }
+        })
     }
 
     fn expected(&self, names: &[String]) -> Vec<String> {
@@ -262,7 +273,8 @@ impl<T, TP> Parser<Option<T>> for Opt<T, TP>
 }
 
 pub struct Many<T, TP>
-    where TP: Parser<T>
+where
+    TP: Parser<T>,
 {
     pub parser: TP,
     pub min: Option<usize>,
@@ -272,7 +284,8 @@ pub struct Many<T, TP>
 }
 
 impl<T, TP> Many<T, TP>
-    where TP: Parser<T>
+where
+    TP: Parser<T>,
 {
     pub fn any(parser: TP) -> Self {
         Self {
@@ -306,23 +319,26 @@ impl<T, TP> Many<T, TP>
 }
 
 impl<T, TP> Parser<Vec<T>> for Many<T, TP>
-    where TP: Parser<T>
+where
+    TP: Parser<T>,
 {
     fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, Vec<T>>> {
         let mut parsed: Vec<T> = vec![];
         if let Some(max) = self.max {
             if max == 0 || max < self.min.unwrap_or(0) {
                 return Ok(Output {
-                              value: parsed,
-                              consumed: &input[..0],
-                              remaining: input,
-                          });
+                    value: parsed,
+                    consumed: &input[..0],
+                    remaining: input,
+                });
             }
         }
         let mut first = true;
         let mut offset = 0;
-        let delim = Chain2::new(Opt::new(Space {}),
-                                Chain2::new(Token::new(self.delim.to_owned()), Opt::new(Space {})));
+        let delim = Chain2::new(
+            Opt::new(Space {}),
+            Chain2::new(Token::new(self.delim.to_owned()), Opt::new(Space {})),
+        );
         'outer: loop {
             let mut inner_offset = offset;
             if !first {
@@ -350,16 +366,18 @@ impl<T, TP> Parser<Vec<T>> for Many<T, TP>
         }
         if let Some(min) = self.min {
             if parsed.len() < min {
-                bail!("expected at least {} items but could only parse {}",
-                      min,
-                      parsed.len());
+                bail!(
+                    "expected at least {} items but could only parse {}",
+                    min,
+                    parsed.len()
+                );
             }
         }
         Ok(Output {
-               value: parsed,
-               consumed: &input[..offset],
-               remaining: &input[offset..],
-           })
+            value: parsed,
+            consumed: &input[..offset],
+            remaining: &input[offset..],
+        })
     }
 
     fn expected(&self, names: &[String]) -> Vec<String> {
@@ -367,11 +385,11 @@ impl<T, TP> Parser<Vec<T>> for Many<T, TP>
             .expected(names)
             .iter()
             .map(|e| match (self.min, self.max) {
-                     (None, None) => format!("any number of {}", e),
-                     (Some(min), None) => format!("{} or more {}", min, e),
-                     (None, Some(max)) => format!("up to {} {}", max, e),
-                     (Some(min), Some(max)) => format!("between {} and {} {}", min, max, e),
-                 })
+                (None, None) => format!("any number of {}", e),
+                (Some(min), None) => format!("{} or more {}", min, e),
+                (None, Some(max)) => format!("up to {} {}", max, e),
+                (Some(min), Some(max)) => format!("between {} and {} {}", min, max, e),
+            })
             .collect()
     }
 
@@ -394,10 +412,10 @@ impl Parser<String> for Space {
             bail!(ErrorKind::Parse(None, self.expected(names), 0));
         }
         Ok(Output {
-               value: input[..consumed].to_owned(),
-               consumed: &input[..consumed],
-               remaining: &input[consumed..],
-           })
+            value: input[..consumed].to_owned(),
+            consumed: &input[..consumed],
+            remaining: &input[consumed..],
+        })
     }
 
     fn expected(&self, _names: &[String]) -> Vec<String> {
@@ -445,30 +463,29 @@ impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
             }
         }
 
-        let error_messages =
-            &errors
-                 .iter()
-                 .filter_map(|e| if let Error(ErrorKind::Parse(ref m, ..), ..) = *e {
-                                 m.to_owned()
-                             } else {
-                                 None
-                             })
-                 .collect::<Vec<String>>();
-        bail!(ErrorKind::Parse(if error_messages.is_empty() {
-                                   None
-                               } else {
-                                   Some(comma_list_or(error_messages))
-                               },
-                               errors
-                                   .iter()
-                                   .flat_map(|e| match *e {
-                                                 Error(ErrorKind::Parse(_, ref expected, _), _) => {
-                                                     expected.clone()
-                                                 }
-                                                 _ => vec![],
-                                             })
-                                   .collect(),
-                               error_consumed));
+        let error_messages = &errors
+            .iter()
+            .filter_map(|e| if let Error(ErrorKind::Parse(ref m, ..), ..) = *e {
+                m.to_owned()
+            } else {
+                None
+            })
+            .collect::<Vec<String>>();
+        bail!(ErrorKind::Parse(
+            if error_messages.is_empty() {
+                None
+            } else {
+                Some(comma_list_or(error_messages))
+            },
+            errors
+                .iter()
+                .flat_map(|e| match *e {
+                    Error(ErrorKind::Parse(_, ref expected, _), _) => expected.clone(),
+                    _ => vec![],
+                })
+                .collect(),
+            error_consumed,
+        ));
     }
 
     fn expected(&self, names: &[String]) -> Vec<String> {
@@ -501,14 +518,16 @@ pub fn comma_list_and<T: Display>(items: &[T]) -> String {
 }
 
 pub struct Enum<T>
-    where T: ToString + Clone
+where
+    T: ToString + Clone,
 {
     pub values: Vec<T>,
     pub exact: bool,
 }
 
 impl<T> Enum<T>
-    where T: ToString + Clone
+where
+    T: ToString + Clone,
 {
     pub fn exact(values: Vec<T>) -> Self {
         Self {
@@ -543,7 +562,8 @@ fn shared_prefix(s1: &str, s2: &str) -> usize {
 }
 
 impl<T> Parser<T> for Enum<T>
-    where T: ToString + Clone
+where
+    T: ToString + Clone,
 {
     fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>> {
         let input_lower = input.to_lowercase();
@@ -582,19 +602,21 @@ impl<T> Parser<T> for Enum<T>
         match matched.len() {
             1 => {
                 Ok(Output {
-                       value: matched[0].to_owned(),
-                       consumed: &input[..match_len],
-                       remaining: &input[match_len..],
-                   })
+                    value: matched[0].to_owned(),
+                    consumed: &input[..match_len],
+                    remaining: &input[match_len..],
+                })
             }
             0 => bail!(ErrorKind::Parse(None, self.expected(names), 0)),
             _ => {
-                bail!(ErrorKind::Parse(Some(format!(
+                bail!(ErrorKind::Parse(
+                    Some(format!(
                     "matched {}, more input is required to uniquely match one",
                     comma_list_and(&matched.iter().map(|m| m.to_string()).collect::<Vec<String>>()),
                 )),
-                                       self.expected(names),
-                                       0))
+                    self.expected(names),
+                    0,
+                ))
             }
         }
     }
@@ -681,11 +703,11 @@ impl Player {
             .iter()
             .enumerate()
             .map(|(p, name)| {
-                     PlayerNum {
-                         num: p,
-                         name: name.to_string(),
-                     }
-                 })
+                PlayerNum {
+                    num: p,
+                    name: name.to_string(),
+                }
+            })
             .collect::<Vec<PlayerNum>>()
     }
 }
@@ -722,10 +744,10 @@ impl<T, TP: Parser<T>> Parser<T> for AfterSpace<T, TP> {
     fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>> {
         let pair = chain_2(&Space {}, &self.parser, input, names)?;
         Ok(Output {
-               value: pair.value.1,
-               consumed: pair.consumed,
-               remaining: pair.remaining,
-           })
+            value: pair.value.1,
+            consumed: pair.consumed,
+            remaining: pair.remaining,
+        })
     }
 
     fn expected(&self, names: &[String]) -> Vec<String> {
@@ -750,28 +772,34 @@ mod tests {
         parser
             .parse("fart", &[])
             .expect_err("expected 'fart' to produce an error");
-        assert_eq!(Output {
-                       value: 10,
-                       consumed: "10",
-                       remaining: "",
-                   },
-                   parser.parse("10", &[]).expect("expected '10' to parse"));
-        assert_eq!(Output {
-                       value: 10,
-                       consumed: "10",
-                       remaining: " with bacon and cheese",
-                   },
-                   parser
-                       .parse("10 with bacon and cheese", &[])
-                       .expect("expected '10 with bacon and cheese' to parse"));
-        assert_eq!(Output {
-                       value: -10,
-                       consumed: "-10",
-                       remaining: " with bacon and cheese",
-                   },
-                   parser
-                       .parse("-10 with bacon and cheese", &[])
-                       .expect("expected '-10 with bacon and cheese' to parse"));
+        assert_eq!(
+            Output {
+                value: 10,
+                consumed: "10",
+                remaining: "",
+            },
+            parser.parse("10", &[]).expect("expected '10' to parse")
+        );
+        assert_eq!(
+            Output {
+                value: 10,
+                consumed: "10",
+                remaining: " with bacon and cheese",
+            },
+            parser
+                .parse("10 with bacon and cheese", &[])
+                .expect("expected '10 with bacon and cheese' to parse")
+        );
+        assert_eq!(
+            Output {
+                value: -10,
+                consumed: "-10",
+                remaining: " with bacon and cheese",
+            },
+            parser
+                .parse("-10 with bacon and cheese", &[])
+                .expect("expected '-10 with bacon and cheese' to parse")
+        );
         parser
             .parse("-", &[])
             .expect_err("expected '-' to produce an error");
@@ -787,56 +815,66 @@ mod tests {
 
     #[test]
     fn map_parser_works() {
-        let parser = Map::new(Int {
-                                  min: None,
-                                  max: None,
-                              },
-                              |i| i.to_string());
-        assert_eq!(Output {
-                       value: "123".to_string(),
-                       consumed: "00123",
-                       remaining: "bacon",
-                   },
-                   parser
-                       .parse("00123bacon", &[])
-                       .expect("expected '00123bacon' to parse"))
+        let parser = Map::new(
+            Int {
+                min: None,
+                max: None,
+            },
+            |i| i.to_string(),
+        );
+        assert_eq!(
+            Output {
+                value: "123".to_string(),
+                consumed: "00123",
+                remaining: "bacon",
+            },
+            parser
+                .parse("00123bacon", &[])
+                .expect("expected '00123bacon' to parse")
+        )
     }
 
     #[test]
     fn opt_parser_works() {
         let parser = Opt::new(Int {
-                                  min: None,
-                                  max: None,
-                              });
-        assert_eq!(Output {
-                       value: Some(123),
-                       consumed: "00123",
-                       remaining: "bacon",
-                   },
-                   parser
-                       .parse("00123bacon", &[])
-                       .expect("expected '00123bacon' to parse"));
-        assert_eq!(Output {
-                       value: None,
-                       consumed: "",
-                       remaining: "bacon",
-                   },
-                   parser
-                       .parse("bacon", &[])
-                       .expect("expected 'bacon' to parse"));
+            min: None,
+            max: None,
+        });
+        assert_eq!(
+            Output {
+                value: Some(123),
+                consumed: "00123",
+                remaining: "bacon",
+            },
+            parser
+                .parse("00123bacon", &[])
+                .expect("expected '00123bacon' to parse")
+        );
+        assert_eq!(
+            Output {
+                value: None,
+                consumed: "",
+                remaining: "bacon",
+            },
+            parser
+                .parse("bacon", &[])
+                .expect("expected 'bacon' to parse")
+        );
     }
 
     #[test]
     fn token_parser_works() {
         let parser = Token::new("blah");
-        assert_eq!(Output {
-                       value: "blah".to_string(),
-                       consumed: "BlAh",
-                       remaining: "bacon",
-                   },
-                   parser
-                       .parse("BlAhbacon", &[])
-                       .expect("expected 'BlAhbacon' to parse"));
+        assert_eq!(
+            Output {
+                value: "blah".to_string(),
+                consumed: "BlAh",
+                remaining: "bacon",
+            },
+            parser
+                .parse("BlAhbacon", &[])
+                .expect("expected 'BlAhbacon' to parse")
+        );
         parser
             .parse("ClAhbacon", &[])
             .expect_err("expected 'ClAhbacon' to produce an error");
@@ -845,101 +883,121 @@ mod tests {
     #[test]
     fn many_parser_works() {
         let mut parser = Many::any(Int {
-                                       min: None,
-                                       max: None,
-                                   });
-        assert_eq!(Output {
-                       value: vec![3, 4, 5],
-                       consumed: "3, 4, 5",
-                       remaining: "",
-                   },
-                   parser
-                       .parse("3, 4, 5", &[])
-                       .expect("expected '3, 4, 5' to parse"));
+            min: None,
+            max: None,
+        });
+        assert_eq!(
+            Output {
+                value: vec![3, 4, 5],
+                consumed: "3, 4, 5",
+                remaining: "",
+            },
+            parser
+                .parse("3, 4, 5", &[])
+                .expect("expected '3, 4, 5' to parse")
+        );
         parser.min = Some(5);
         parser
             .parse("3, 4, 5", &[])
             .expect_err("expected '3, 4, 5' with a min of 5 to produce an error");
         parser.max = Some(5);
-        assert_eq!(Output {
-                       value: vec![3, 4, 5, 6, 7],
-                       consumed: "3, 4, 5, 6, 7",
-                       remaining: ", 8, 9, 10",
-                   },
-                   parser
-                       .parse("3, 4, 5, 6, 7, 8, 9, 10", &[])
-                       .expect("expected '3, 4, 5, 6, 7, 8, 9, 10' to parse"));
+        assert_eq!(
+            Output {
+                value: vec![3, 4, 5, 6, 7],
+                consumed: "3, 4, 5, 6, 7",
+                remaining: ", 8, 9, 10",
+            },
+            parser
+                .parse("3, 4, 5, 6, 7, 8, 9, 10", &[])
+                .expect("expected '3, 4, 5, 6, 7, 8, 9, 10' to parse")
+        );
         parser.min = None;
         parser.delim = ";".to_string();
-        assert_eq!(Output {
-                       value: vec![3, 4, 5],
-                       consumed: "3; 4; 5",
-                       remaining: "",
-                   },
-                   parser
-                       .parse("3; 4; 5", &[])
-                       .expect("expected '3; 4; 5' to parse"));
+        assert_eq!(
+            Output {
+                value: vec![3, 4, 5],
+                consumed: "3; 4; 5",
+                remaining: "",
+            },
+            parser
+                .parse("3; 4; 5", &[])
+                .expect("expected '3; 4; 5' to parse")
+        );
     }
 
     #[test]
     fn test_one_of_works() {
         let parsers: Vec<Box<Parser<String>>> =
-            vec![Box::new(Token::new("blah")),
-                 Box::new(Map::new(Many::any(Token::new("fart")), |v| v.join(" ")))];
+            vec![
+                Box::new(Token::new("blah")),
+                Box::new(Map::new(Many::any(Token::new("fart")), |v| v.join(" "))),
+            ];
         let parser = OneOf::new(parsers);
-        assert_eq!(Output {
-                       value: "blah".to_string(),
-                       consumed: "blah",
-                       remaining: "",
-                   },
-                   parser.parse("blah", &[]).expect("expected 'blah' to parse"));
-        assert_eq!(Output {
-                       value: "fart fart fart".to_string(),
-                       consumed: "fart, fart, fart",
-                       remaining: "",
-                   },
-                   parser
-                       .parse("fart, fart, fart", &[])
-                       .expect("expected 'fart, fart, fart' to parse"));
+        assert_eq!(
+            Output {
+                value: "blah".to_string(),
+                consumed: "blah",
+                remaining: "",
+            },
+            parser.parse("blah", &[]).expect("expected 'blah' to parse")
+        );
+        assert_eq!(
+            Output {
+                value: "fart fart fart".to_string(),
+                consumed: "fart, fart, fart",
+                remaining: "",
+            },
+            parser
+                .parse("fart, fart, fart", &[])
+                .expect("expected 'fart, fart, fart' to parse")
+        );
     }
 
     #[test]
     fn test_enum_works() {
         let parser = Enum::partial(vec!["fart", "cheese", "dog", "bacon", "farty"]);
-        assert_eq!(Output {
-                       value: "cheese",
-                       consumed: "c",
-                       remaining: "",
-                   },
-                   parser.parse("c", &[]).expect("expected 'c' to parse"));
+        assert_eq!(
+            Output {
+                value: "cheese",
+                consumed: "c",
+                remaining: "",
+            },
+            parser.parse("c", &[]).expect("expected 'c' to parse")
+        );
         parser
             .parse("hat", &[])
             .expect_err("expected 'hat' to produce error");
         parser
             .parse("far", &[])
             .expect_err("expected 'far' to produce error");
-        assert_eq!(Output {
-                       value: "fart",
-                       consumed: "fart",
-                       remaining: "",
-                   },
-                   parser.parse("fart", &[]).expect("expected 'fart' to parse"));
-        assert_eq!(Output {
-                       value: "farty",
-                       consumed: "farty",
-                       remaining: "",
-                   },
-                   parser
-                       .parse("farty", &[])
-                       .expect("expected 'farty' to parse"));
-        assert_eq!(Output {
-                       value: "dog",
-                       consumed: "DoG",
-                       remaining: "log",
-                   },
-                   parser
-                       .parse("DoGlog", &[])
-                       .expect("expected 'DoGlog' to parse"));
+        assert_eq!(
+            Output {
+                value: "fart",
+                consumed: "fart",
+                remaining: "",
+            },
+            parser.parse("fart", &[]).expect("expected 'fart' to parse")
+        );
+        assert_eq!(
+            Output {
+                value: "farty",
+                consumed: "farty",
+                remaining: "",
+            },
+            parser
+                .parse("farty", &[])
+                .expect("expected 'farty' to parse")
+        );
+        assert_eq!(
+            Output {
+                value: "dog",
+                consumed: "DoG",
+                remaining: "log",
+            },
+            parser
+                .parse("DoGlog", &[])
+                .expect("expected 'DoGlog' to parse")
+        );
     }
 
     #[test]
@@ -948,13 +1006,15 @@ mod tests {
         parser
             .parse("blah", &[])
             .expect_err("expected 'blah' to produce error");
-        assert_eq!(Output {
-                       value: "blah".to_string(),
-                       consumed: " BlAh",
-                       remaining: "bacon",
-                   },
-                   parser
-                       .parse(" BlAhbacon", &[])
-                       .expect("expected ' BlAhbacon' to parse"));
+        assert_eq!(
+            Output {
+                value: "blah".to_string(),
+                consumed: " BlAh",
+                remaining: "bacon",
+            },
+            parser
+                .parse(" BlAhbacon", &[])
+                .expect("expected ' BlAhbacon' to parse")
+        );
     }
 }

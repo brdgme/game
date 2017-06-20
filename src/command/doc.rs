@@ -108,72 +108,72 @@ fn doc_one_of(specs: &[Spec], opts: &Opts) -> Vec<(Vec<Node>, Option<String>)> {
 
 fn doc_chain(specs: &[Spec], opts: &Opts) -> (Vec<Node>, Option<String>) {
     let mut desc: Option<String> = None;
-    (specs
-         .iter()
-         .enumerate()
-         .flat_map(|(i, s)| match join_docs(&s.doc_opts(opts)) {
-                       Some((doc, desc_opt)) => {
-                           if i == 0 {
-                               desc = desc_opt;
-                           }
-                           doc
-                       }
-                       None => vec![],
-                   })
-         .collect(),
-     desc)
+    (
+        specs
+            .iter()
+            .enumerate()
+            .flat_map(|(i, s)| match join_docs(&s.doc_opts(opts)) {
+                Some((doc, desc_opt)) => {
+                    if i == 0 {
+                        desc = desc_opt;
+                    }
+                    doc
+                }
+                None => vec![],
+            })
+            .collect(),
+        desc,
+    )
 }
 
-fn doc_many(spec: &Spec,
-            min: Option<usize>,
-            max: Option<usize>,
-            _delim: &str,
-            opts: &Opts)
-            -> Option<(Vec<Node>, Option<String>)> {
+fn doc_many(
+    spec: &Spec,
+    min: Option<usize>,
+    max: Option<usize>,
+    _delim: &str,
+    opts: &Opts,
+) -> Option<(Vec<Node>, Option<String>)> {
     join_docs(&spec.doc_opts(opts)).and_then(|(mut doc, desc)| match (min, max) {
-                                                 // Some combinations expect nothing.
-                                                 (_, Some(0)) => None,
-                                                 (Some(min), Some(max)) if min > max => None,
-                                                 // Like optional
-                                                 (Some(0), Some(1)) |
-                                                 (None, Some(1)) => {
-                                                     doc.push(Node::text("?"));
-                                                     Some((doc, desc))
-                                                 }
-                                                 // Exactly 1
-                                                 (Some(1), Some(1)) => Some((doc, desc)),
-                                                 // 0 or more
-                                                 (None, _) | (Some(0), _) => {
-                                                     doc.push(Node::text("*"));
-                                                     Some((doc, desc))
-                                                 }
-                                                 // 1 or more
-                                                 (Some(1), _) => {
-                                                     doc.push(Node::text("+"));
-                                                     Some((doc, desc))
-                                                 }
-                                                 // Other "or more" prepended with min
-                                                 (Some(min), None) => {
-                                                     let mut prepended =
-                                                         vec![Node::text(format!("({}+)", min))];
-                                                     prepended.extend(doc);
-                                                     Some((prepended, desc))
-                                                 }
-                                                 // All others displayed as range
-                                                 (min, Some(max)) => {
-                                                     doc.push(Node::text(format!("({}-{})",
-                                                                            min.unwrap_or(0),
-                                                                            max)));
-                                                     Some((doc, desc))
-                                                 }
-                                             })
+        // Some combinations expect nothing.
+        (_, Some(0)) => None,
+        (Some(min), Some(max)) if min > max => None,
+        // Like optional
+        (Some(0), Some(1)) |
+        (None, Some(1)) => {
+            doc.push(Node::text("?"));
+            Some((doc, desc))
+        }
+        // Exactly 1
+        (Some(1), Some(1)) => Some((doc, desc)),
+        // 0 or more
+        (None, _) | (Some(0), _) => {
+            doc.push(Node::text("*"));
+            Some((doc, desc))
+        }
+        // 1 or more
+        (Some(1), _) => {
+            doc.push(Node::text("+"));
+            Some((doc, desc))
+        }
+        // Other "or more" prepended with min
+        (Some(min), None) => {
+            let mut prepended = vec![Node::text(format!("({}+)", min))];
+            prepended.extend(doc);
+            Some((prepended, desc))
+        }
+        // All others displayed as range
+        (min, Some(max)) => {
+            doc.push(Node::text(format!("({}-{})", min.unwrap_or(0), max)));
+            Some((doc, desc))
+        }
+    })
 }
 
 fn doc_opt(spec: &Spec, opts: &Opts) -> Option<(Vec<Node>, Option<String>)> {
     join_docs(&spec.doc_opts(opts)).map(|(mut doc, desc)| {
-                                            doc.push(Node::text("?"));
-                                            (doc, desc)
-                                        })
+        doc.push(Node::text("?"));
+        (doc, desc)
+    })
 }
 
 fn doc_doc(name: &str, desc: &Option<String>, spec: &Spec) -> Option<(Vec<Node>, Option<String>)> {
