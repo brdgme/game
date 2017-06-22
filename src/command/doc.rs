@@ -37,18 +37,18 @@ impl Spec {
                     .unwrap_or_else(|| vec![])
             }
             Spec::Opt(ref spec) => {
-                doc_opt(spec, opts).map(|d| vec![d]).unwrap_or_else(
-                    || vec![],
-                )
+                doc_opt(spec, opts)
+                    .map(|d| vec![d])
+                    .unwrap_or_else(|| vec![])
             }
             Spec::Doc {
                 ref name,
                 ref desc,
                 ref spec,
             } => {
-                doc_doc(name, desc, spec).map(|d| vec![d]).unwrap_or_else(
-                    || vec![],
-                )
+                doc_doc(name, desc, spec)
+                    .map(|d| vec![d])
+                    .unwrap_or_else(|| vec![])
             }
             Spec::Player => vec![(vec![Node::text("player")], None)],
             Spec::Space => vec![(vec![Node::text(" ")], None)],

@@ -56,9 +56,10 @@ where
     let lower_needle = needle.into().to_lowercase();
     let matching = haystack
         .filter(|&&(ref key, _)| {
-            key.to_owned().into().to_lowercase().starts_with(
-                &lower_needle,
-            )
+            key.to_owned()
+                .into()
+                .to_lowercase()
+                .starts_with(&lower_needle)
         })
         .collect::<Vec<&'a (S, T)>>();
     match matching.len() {
@@ -84,8 +85,7 @@ where
     for message in err.errors.iter().filter(|e| match **e {
         Error::Message(_) => true,
         _ => false,
-    })
-    {
+    }) {
         writeln!(s, "{}", message).unwrap();
         written = true;
     }

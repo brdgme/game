@@ -217,9 +217,9 @@ mod tests {
                 consumed: "123egg",
                 remaining: "  chairs",
             },
-            parser.parse("123egg  chairs", &[]).expect(
-                "expected '123egg  chairs' to parse",
-            )
+            parser
+                .parse("123egg  chairs", &[])
+                .expect("expected '123egg  chairs' to parse")
         )
     }
 }
