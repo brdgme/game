@@ -4,6 +4,7 @@ use serde::de::DeserializeOwned;
 use brdgme_markup::Node;
 
 use std::collections::HashMap;
+use std::cmp::Ordering;
 
 use game_log::Log;
 use command;
@@ -109,4 +110,71 @@ pub trait Gamer: Sized {
 
 pub trait Renderer {
     fn render(&self) -> Vec<Node>;
+}
+
+fn cmp_fallback(a: &[i32], b: &[i32]) -> Ordering {
+    if a.is_empty() && b.is_empty() {
+        return Ordering::Equal;
+    }
+    if a.is_empty() {
+        return Ordering::Less;
+    }
+    if b.is_empty() {
+        return Ordering::Greater;
+    }
+    match a[0].partial_cmp(&b[0]) {
+        Some(Ordering::Equal) |
+        None => cmp_fallback(&a[1..], &b[1..]),
+        Some(ord) => ord,
+    }
+}
+
+pub fn gen_placings(metrics: &[Vec<i32>]) -> Vec<usize> {
+    let mut grouped: HashMap<&Vec<i32>, Vec<usize>> = HashMap::new();
+    for (player, m) in metrics.iter().enumerate() {
+        let entry = grouped.entry(m).or_insert_with(|| vec![]);
+        entry.push(player);
+    }
+
+    let mut keys: Vec<&Vec<i32>> = grouped.keys().cloned().collect();
+    keys.sort_by(|a, b| cmp_fallback(a.as_ref(), b.as_ref()));
+
+    let mut placings: HashMap<usize, usize> = HashMap::new();
+    let mut cur_place = 1;
+    for key in keys.iter().rev() {
+        let players = grouped.get(key).unwrap();
+        for player in players {
+            placings.insert(*player, cur_place);
+        }
+        cur_place += players.len();
+    }
+
+    metrics
+        .iter()
+        .enumerate()
+        .map(|(player, _)| *placings.get(&player).unwrap())
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn gen_placings_works() {
+        assert_eq!(
+            vec![2, 1],
+            super::gen_placings(&[vec![12i32, 34i32], vec![13i32, 33i32]])
+        );
+        assert_eq!(
+            vec![1, 1],
+            super::gen_placings(&[vec![12i32, 34i32], vec![12i32, 34i32]])
+        );
+        assert_eq!(
+            vec![1, 2],
+            super::gen_placings(&[vec![12i32, 36i32], vec![12i32, 35i32]])
+        );
+        assert_eq!(
+            vec![1, 2],
+            super::gen_placings(&[vec![12i32, 35i32, 0i32], vec![12i32, 35i32]])
+        );
+    }
 }
