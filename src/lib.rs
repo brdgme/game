@@ -15,7 +15,6 @@ extern crate brdgme_color;
 
 pub mod game;
 pub mod game_log;
-pub mod parser;
 pub mod errors;
 pub mod command;
 pub mod bot;

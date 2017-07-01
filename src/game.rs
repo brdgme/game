@@ -24,7 +24,7 @@ pub enum Status {
         eliminated: Vec<usize>,
     },
     Finished {
-        winners: Vec<usize>,
+        placings: Vec<usize>,
         stats: Vec<HashMap<String, Stat>>,
     },
 }
@@ -73,9 +73,9 @@ pub trait Gamer: Sized {
         }
     }
 
-    fn winners(&self) -> Vec<usize> {
+    fn placings(&self) -> Vec<usize> {
         match self.status() {
-            Status::Finished { winners, .. } => winners,
+            Status::Finished { placings, .. } => placings,
             _ => vec![],
         }
     }

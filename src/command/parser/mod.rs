@@ -611,9 +611,12 @@ where
             _ => {
                 bail!(ErrorKind::Parse(
                     Some(format!(
-                    "matched {}, more input is required to uniquely match one",
-                    comma_list_and(&matched.iter().map(|m| m.to_string()).collect::<Vec<String>>()),
-                )),
+                        "matched {}, more input is required to uniquely match one",
+                        comma_list_and(&matched
+                            .iter()
+                            .map(|m| m.to_string())
+                            .collect::<Vec<String>>()),
+                    ),),
                     self.expected(names),
                     0,
                 ))
