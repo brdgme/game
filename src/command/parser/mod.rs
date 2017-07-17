@@ -616,7 +616,7 @@ where
                             .iter()
                             .map(|m| m.to_string())
                             .collect::<Vec<String>>()),
-                    ),),
+                    )),
                     self.expected(names),
                     0,
                 ))
@@ -772,9 +772,9 @@ mod tests {
             min: None,
             max: None,
         };
-        parser
-            .parse("fart", &[])
-            .expect_err("expected 'fart' to produce an error");
+        parser.parse("fart", &[]).expect_err(
+            "expected 'fart' to produce an error",
+        );
         assert_eq!(
             Output {
                 value: 10,
@@ -789,9 +789,9 @@ mod tests {
                 consumed: "10",
                 remaining: " with bacon and cheese",
             },
-            parser
-                .parse("10 with bacon and cheese", &[])
-                .expect("expected '10 with bacon and cheese' to parse")
+            parser.parse("10 with bacon and cheese", &[]).expect(
+                "expected '10 with bacon and cheese' to parse",
+            )
         );
         assert_eq!(
             Output {
@@ -799,21 +799,21 @@ mod tests {
                 consumed: "-10",
                 remaining: " with bacon and cheese",
             },
-            parser
-                .parse("-10 with bacon and cheese", &[])
-                .expect("expected '-10 with bacon and cheese' to parse")
+            parser.parse("-10 with bacon and cheese", &[]).expect(
+                "expected '-10 with bacon and cheese' to parse",
+            )
         );
-        parser
-            .parse("-", &[])
-            .expect_err("expected '-' to produce an error");
+        parser.parse("-", &[]).expect_err(
+            "expected '-' to produce an error",
+        );
         parser.min = Some(-5);
-        parser
-            .parse("-6", &[])
-            .expect_err("expected '-6' to produce an error when minimum is set");
+        parser.parse("-6", &[]).expect_err(
+            "expected '-6' to produce an error when minimum is set",
+        );
         parser.max = Some(100);
-        parser
-            .parse("101", &[])
-            .expect_err("expected '101' to produce an error when maximum is set");
+        parser.parse("101", &[]).expect_err(
+            "expected '101' to produce an error when maximum is set",
+        );
     }
 
     #[test]
@@ -831,9 +831,9 @@ mod tests {
                 consumed: "00123",
                 remaining: "bacon",
             },
-            parser
-                .parse("00123bacon", &[])
-                .expect("expected '00123bacon' to parse")
+            parser.parse("00123bacon", &[]).expect(
+                "expected '00123bacon' to parse",
+            )
         )
     }
 
@@ -849,9 +849,9 @@ mod tests {
                 consumed: "00123",
                 remaining: "bacon",
             },
-            parser
-                .parse("00123bacon", &[])
-                .expect("expected '00123bacon' to parse")
+            parser.parse("00123bacon", &[]).expect(
+                "expected '00123bacon' to parse",
+            )
         );
         assert_eq!(
             Output {
@@ -859,9 +859,9 @@ mod tests {
                 consumed: "",
                 remaining: "bacon",
             },
-            parser
-                .parse("bacon", &[])
-                .expect("expected 'bacon' to parse")
+            parser.parse("bacon", &[]).expect(
+                "expected 'bacon' to parse",
+            )
         );
     }
 
@@ -874,13 +874,13 @@ mod tests {
                 consumed: "BlAh",
                 remaining: "bacon",
             },
-            parser
-                .parse("BlAhbacon", &[])
-                .expect("expected 'BlAhbacon' to parse")
+            parser.parse("BlAhbacon", &[]).expect(
+                "expected 'BlAhbacon' to parse",
+            )
         );
-        parser
-            .parse("ClAhbacon", &[])
-            .expect_err("expected 'ClAhbacon' to produce an error");
+        parser.parse("ClAhbacon", &[]).expect_err(
+            "expected 'ClAhbacon' to produce an error",
+        );
     }
 
     #[test]
@@ -895,14 +895,14 @@ mod tests {
                 consumed: "3, 4, 5",
                 remaining: "",
             },
-            parser
-                .parse("3, 4, 5", &[])
-                .expect("expected '3, 4, 5' to parse")
+            parser.parse("3, 4, 5", &[]).expect(
+                "expected '3, 4, 5' to parse",
+            )
         );
         parser.min = Some(5);
-        parser
-            .parse("3, 4, 5", &[])
-            .expect_err("expected '3, 4, 5' with a min of 5 to produce an error");
+        parser.parse("3, 4, 5", &[]).expect_err(
+            "expected '3, 4, 5' with a min of 5 to produce an error",
+        );
         parser.max = Some(5);
         assert_eq!(
             Output {
@@ -910,9 +910,9 @@ mod tests {
                 consumed: "3, 4, 5, 6, 7",
                 remaining: ", 8, 9, 10",
             },
-            parser
-                .parse("3, 4, 5, 6, 7, 8, 9, 10", &[])
-                .expect("expected '3, 4, 5, 6, 7, 8, 9, 10' to parse")
+            parser.parse("3, 4, 5, 6, 7, 8, 9, 10", &[]).expect(
+                "expected '3, 4, 5, 6, 7, 8, 9, 10' to parse",
+            )
         );
         parser.min = None;
         parser.delim = ";".to_string();
@@ -922,9 +922,9 @@ mod tests {
                 consumed: "3; 4; 5",
                 remaining: "",
             },
-            parser
-                .parse("3; 4; 5", &[])
-                .expect("expected '3; 4; 5' to parse")
+            parser.parse("3; 4; 5", &[]).expect(
+                "expected '3; 4; 5' to parse",
+            )
         );
     }
 
@@ -950,9 +950,9 @@ mod tests {
                 consumed: "fart, fart, fart",
                 remaining: "",
             },
-            parser
-                .parse("fart, fart, fart", &[])
-                .expect("expected 'fart, fart, fart' to parse")
+            parser.parse("fart, fart, fart", &[]).expect(
+                "expected 'fart, fart, fart' to parse",
+            )
         );
     }
 
@@ -967,12 +967,12 @@ mod tests {
             },
             parser.parse("c", &[]).expect("expected 'c' to parse")
         );
-        parser
-            .parse("hat", &[])
-            .expect_err("expected 'hat' to produce error");
-        parser
-            .parse("far", &[])
-            .expect_err("expected 'far' to produce error");
+        parser.parse("hat", &[]).expect_err(
+            "expected 'hat' to produce error",
+        );
+        parser.parse("far", &[]).expect_err(
+            "expected 'far' to produce error",
+        );
         assert_eq!(
             Output {
                 value: "fart",
@@ -987,9 +987,9 @@ mod tests {
                 consumed: "farty",
                 remaining: "",
             },
-            parser
-                .parse("farty", &[])
-                .expect("expected 'farty' to parse")
+            parser.parse("farty", &[]).expect(
+                "expected 'farty' to parse",
+            )
         );
         assert_eq!(
             Output {
@@ -997,27 +997,27 @@ mod tests {
                 consumed: "DoG",
                 remaining: "log",
             },
-            parser
-                .parse("DoGlog", &[])
-                .expect("expected 'DoGlog' to parse")
+            parser.parse("DoGlog", &[]).expect(
+                "expected 'DoGlog' to parse",
+            )
         );
     }
 
     #[test]
     fn after_space_parser_works() {
         let parser = AfterSpace::new(Token::new("blah"));
-        parser
-            .parse("blah", &[])
-            .expect_err("expected 'blah' to produce error");
+        parser.parse("blah", &[]).expect_err(
+            "expected 'blah' to produce error",
+        );
         assert_eq!(
             Output {
                 value: "blah".to_string(),
                 consumed: " BlAh",
                 remaining: "bacon",
             },
-            parser
-                .parse(" BlAhbacon", &[])
-                .expect("expected ' BlAhbacon' to parse")
+            parser.parse(" BlAhbacon", &[]).expect(
+                "expected ' BlAhbacon' to parse",
+            )
         );
     }
 }

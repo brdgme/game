@@ -142,7 +142,7 @@ pub fn gen_placings(metrics: &[Vec<i32>]) -> Vec<usize> {
     let mut placings: HashMap<usize, usize> = HashMap::new();
     let mut cur_place = 1;
     for key in keys.iter().rev() {
-        let players = grouped.get(key).unwrap();
+        let players = &grouped[key];
         for player in players {
             placings.insert(*player, cur_place);
         }
@@ -152,7 +152,7 @@ pub fn gen_placings(metrics: &[Vec<i32>]) -> Vec<usize> {
     metrics
         .iter()
         .enumerate()
-        .map(|(player, _)| *placings.get(&player).unwrap())
+        .map(|(player, _)| placings[&player])
         .collect()
 }
 
