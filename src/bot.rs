@@ -9,6 +9,7 @@ use errors::*;
 
 const BOT_COMMAND_QUALITY_DEFAULT: u8 = 128;
 
+#[derive(Serialize, Deserialize)]
 pub struct BotCommand {
     pub quality: u8,
     pub commands: Vec<String>,
