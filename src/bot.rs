@@ -7,6 +7,34 @@ use game::Gamer;
 use command::Spec as CommandSpec;
 use errors::*;
 
+const BOT_COMMAND_QUALITY_DEFAULT: u8 = 128;
+
+pub struct BotCommand {
+    pub quality: u8,
+    pub commands: Vec<String>,
+}
+
+impl Default for BotCommand {
+    fn default() -> Self {
+        BotCommand {
+            quality: BOT_COMMAND_QUALITY_DEFAULT,
+            commands: vec![],
+        }
+    }
+}
+
+impl<I> From<I> for BotCommand
+where
+    I: Into<String>,
+{
+    fn from(s: I) -> Self {
+        BotCommand {
+            commands: vec![s.into()],
+            ..BotCommand::default()
+        }
+    }
+}
+
 pub trait Botter<T: Gamer> {
     fn commands(
         &mut self,
@@ -15,7 +43,7 @@ pub trait Botter<T: Gamer> {
         players: &[String],
         command_spec: &CommandSpec,
         game_id: Option<String>,
-    ) -> Vec<String>;
+    ) -> Vec<BotCommand>;
 }
 
 pub struct Fuzzer<G: Gamer, B: Botter<G>> {
@@ -93,27 +121,33 @@ impl<G: Gamer, B: Botter<G>> Iterator for Fuzzer<G, B> {
             );
             let pub_state = game.pub_state(Some(player));
             let command_spec = game.command_spec(player).expect("expected a command spec");
-            let input = self.bot.commands(
+            let bot_commands = self.bot.commands(
                 player,
                 &pub_state,
                 &self.player_names[..self.player_count],
                 &command_spec,
                 Some(format!("{}", self.game_count)),
-            )
-                [0]
+            );
+            let input = self.rng
+                .choose(&bot_commands)
+                .expect("bot returned no commands")
                 .to_owned();
-            let cmd_res = game.command(player, &input, &self.player_names);
+            if input.commands.is_empty() {
+                panic!("BotCommand with no commands was returned by bot")
+            }
+            let cmd = &input.commands[0];
+            let cmd_res = game.command(player, cmd, &self.player_names);
             self.command_count += 1;
             match cmd_res {
                 Ok(..) => {}
                 Err(Error(ErrorKind::InvalidInput(e), _)) => {
                     self.invalid_input_count += 1;
-                    trace!("invalid input '{}' for player {}: {}", input, player, e)
+                    trace!("invalid input '{}' for player {}: {}", cmd, player, e)
                 }
                 _ => {
                     panic!(
                         "error running command '{}' for player {}, {:?}",
-                        input,
+                        cmd,
                         player,
                         cmd_res
                     )
