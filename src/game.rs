@@ -39,9 +39,11 @@ pub struct CommandResponse {
 
 pub trait Gamer: Sized {
     type PubState: Serialize + DeserializeOwned + Renderer;
+    type PlayerState: Serialize + DeserializeOwned + Renderer;
 
     fn new(players: usize) -> Result<(Self, Vec<Log>)>;
-    fn pub_state(&self, player: Option<usize>) -> Self::PubState;
+    fn pub_state(&self) -> Self::PubState;
+    fn player_state(&self, player: usize) -> Self::PlayerState;
     fn command(
         &mut self,
         player: usize,

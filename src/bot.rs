@@ -40,7 +40,7 @@ pub trait Botter<T: Gamer> {
     fn commands(
         &mut self,
         player: usize,
-        pub_state: &T::PubState,
+        player_state: &T::PlayerState,
         players: &[String],
         command_spec: &CommandSpec,
         game_id: Option<String>,
@@ -120,11 +120,11 @@ impl<G: Gamer, B: Botter<G>> Iterator for Fuzzer<G, B> {
             let player = *self.rng.choose(&game.whose_turn()).expect(
                 "is nobody's turn",
             );
-            let pub_state = game.pub_state(Some(player));
+            let player_state = game.player_state(player);
             let command_spec = game.command_spec(player).expect("expected a command spec");
             let bot_commands = self.bot.commands(
                 player,
-                &pub_state,
+                &player_state,
                 &self.player_names[..self.player_count],
                 &command_spec,
                 Some(format!("{}", self.game_count)),
