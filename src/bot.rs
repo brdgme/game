@@ -5,7 +5,7 @@ use std::io::Write;
 
 use game::Gamer;
 use command::Spec as CommandSpec;
-use errors::*;
+use errors::GameError;
 
 const BOT_COMMAND_QUALITY_DEFAULT: u8 = 128;
 
@@ -108,18 +108,18 @@ impl<G: Gamer, B: Botter<G>> Iterator for Fuzzer<G, B> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.game.as_ref().map(|g| g.is_finished()).unwrap_or(true) {
             self.game_count += 1;
-            self.player_count = *self.rng.choose(&self.player_counts).expect(
-                "no player counts for game type",
-            );
+            self.player_count = *self.rng
+                .choose(&self.player_counts)
+                .expect("no player counts for game type");
             self.game = Some(
                 G::new(self.player_count)
                     .expect("failed to create new game")
                     .0,
             );
         } else if let Some(ref mut game) = self.game {
-            let player = *self.rng.choose(&game.whose_turn()).expect(
-                "is nobody's turn",
-            );
+            let player = *self.rng
+                .choose(&game.whose_turn())
+                .expect("is nobody's turn");
             let player_state = game.player_state(player);
             let command_spec = game.command_spec(player).expect("expected a command spec");
             let bot_commands = self.bot.commands(
@@ -141,18 +141,16 @@ impl<G: Gamer, B: Botter<G>> Iterator for Fuzzer<G, B> {
             self.command_count += 1;
             match cmd_res {
                 Ok(..) => {}
-                Err(Error(ErrorKind::InvalidInput(e), _)) => {
+                Err(GameError::InvalidInput { message }) => {
                     self.invalid_input_count += 1;
-                    trace!("invalid input '{}' for player {}: {}", cmd, player, e)
+                    trace!("invalid input '{}' for player {}: {}", cmd, player, message)
                 }
-                _ => {
-                    panic!(
-                        "error running command '{}' for player {}, {:?}",
-                        cmd,
-                        player,
-                        cmd_res
-                    )
-                }
+                _ => panic!(
+                    "error running command '{}' for player {}, {:?}",
+                    cmd,
+                    player,
+                    cmd_res
+                ),
             }
         }
         Some(())

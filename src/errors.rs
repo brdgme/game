@@ -1,33 +1,51 @@
+use std::fmt;
+
 use command::parser::comma_list_or;
 
-error_chain! {
-    errors {
-        PlayerCount(min: usize, max: usize, given: usize) {
-            description("incorrect player count")
-            display(
+#[derive(Debug, Fail)]
+pub enum GameError {
+    PlayerCount {
+        min: usize,
+        max: usize,
+        given: usize,
+    },
+    InvalidInput { message: String },
+    NotYourTurn,
+    Finished,
+    Internal { message: String },
+    Parse {
+        message: Option<String>,
+        expected: Vec<String>,
+        offset: usize,
+    },
+}
+
+impl fmt::Display for GameError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            GameError::PlayerCount { given, min, max } => write!(
+                f,
                 "not for {} players, expected {}",
                 given,
-                player_range_output(*min, *max),
-            )
-        }
-        InvalidInput(message: String) {
-            description("invalid input")
-            display("{}", message)
-        }
-        NotYourTurn {
-            description("not your turn")
-        }
-        Finished {
-            description("game is already finished")
-        }
-        Internal(message: String) {
-            description("internal error")
-            display("internal error: {}", message)
-        }
-        Parse(message: Option<String>, expected: Vec<String>, offset: usize) {
-            description("parse error")
-            display("{}expected {}", message.as_ref().map(|m| format!("{}, ", m))
-                .unwrap_or_else(|| "".to_string()), comma_list_or(expected))
+                player_range_output(min, max)
+            ),
+            GameError::InvalidInput { ref message } => write!(f, "{}", message),
+            GameError::NotYourTurn => write!(f, "not your turn"),
+            GameError::Finished => write!(f, "game is already finished"),
+            GameError::Internal { ref message } => write!(f, "internal error: {}", message),
+            GameError::Parse {
+                ref message,
+                ref expected,
+                ..
+            } => write!(
+                f,
+                "{}expected {}",
+                message
+                    .as_ref()
+                    .map(|m| format!("{}, ", m))
+                    .unwrap_or_else(|| "".to_string()),
+                comma_list_or(expected)
+            ),
         }
     }
 }

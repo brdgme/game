@@ -6,11 +6,11 @@ use std::fmt::Display;
 
 pub mod chain;
 
-use errors::*;
+use errors::GameError;
 use command::Spec as CommandSpec;
 pub use self::chain::*;
 
-const MANY_DELIM: &'static str = ",";
+const MANY_DELIM: &str = ",";
 
 #[derive(Debug, PartialEq)]
 pub struct Output<'a, T> {
@@ -20,7 +20,7 @@ pub struct Output<'a, T> {
 }
 
 pub trait Parser<T> {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>>;
+    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>, GameError>;
     fn expected(&self, names: &[String]) -> Vec<String>;
     fn to_spec(&self) -> CommandSpec;
 }
@@ -34,15 +34,21 @@ impl Token {
     where
         T: Into<String>,
     {
-        Self { token: token.into() }
+        Self {
+            token: token.into(),
+        }
     }
 }
 
 impl Parser<String> for Token {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, String>> {
+    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, String>, GameError> {
         let t_len = self.token.len();
         if input.len() < self.token.len() || UniCase(&input[..t_len]) != UniCase(&self.token) {
-            bail!(ErrorKind::Parse(None, self.expected(names), 0));
+            return Err(GameError::Parse {
+                message: None,
+                expected: self.expected(names),
+                offset: 0,
+            });
         }
         Ok(Output {
             value: self.token.to_owned(),
@@ -105,47 +111,53 @@ impl Int {
 }
 
 impl Parser<i32> for Int {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, i32>> {
+    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, i32>, GameError> {
         let mut found_digit = false;
         let consumed_count = input
             .chars()
             .enumerate()
-            .take_while(|&(i, c)| if i == 0 && c == '-' {
-                true
-            } else if c.is_digit(10) {
-                found_digit = true;
-                true
-            } else {
-                false
+            .take_while(|&(i, c)| {
+                if i == 0 && c == '-' {
+                    true
+                } else if c.is_digit(10) {
+                    found_digit = true;
+                    true
+                } else {
+                    false
+                }
             })
             .count();
         if !found_digit {
-            bail!(ErrorKind::Parse(None, self.expected(names), 0));
+            return Err(GameError::Parse {
+                message: None,
+                expected: self.expected(names),
+                offset: 0,
+            });
         }
         let consumed = &input[..consumed_count];
-        let value: i32 = consumed.parse().chain_err(|| {
-            ErrorKind::Parse(
-                Some(format!("failed to parse '{}'", consumed)),
-                self.expected(names),
-                0,
-            )
+        let value: i32 = consumed.parse().map_err(|_| {
+            GameError::Parse {
+                message: Some(format!("failed to parse '{}'", consumed)),
+                expected: self.expected(names),
+                offset: 0,
+            }
         })?;
         if let Some(min) = self.min {
             if value < min {
-                bail!(ErrorKind::Parse(
-                    Some(format!("{} is too low", value)),
-                    self.expected(names),
-                    0,
-                ));
+                return Err(GameError::Parse {
+                    message: Some(format!("{} is too low", value)),
+                    expected: self.expected(names),
+                    offset: 0,
+                });
             }
         }
         if let Some(max) = self.max {
             if value > max {
-                bail!(ErrorKind::Parse(
-                    Some(format!("{} is too high", value)),
-                    self.expected(names),
-                    0,
-                ));
+                return Err(GameError::Parse {
+                    message: Some(format!("{} is too high", value)),
+                    expected: self.expected(names),
+                    offset: 0,
+                });
             }
         }
         Ok(Output {
@@ -198,7 +210,7 @@ where
     F: Fn(T) -> O,
     TP: Parser<T>,
 {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, O>> {
+    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, O>, GameError> {
         let child_parse = self.parser.parse(input, names)?;
         Ok(Output {
             value: (self.map)(child_parse.value),
@@ -240,22 +252,22 @@ impl<T, TP> Parser<Option<T>> for Opt<T, TP>
 where
     TP: Parser<T>,
 {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, Option<T>>> {
+    fn parse<'a>(
+        &self,
+        input: &'a str,
+        names: &[String],
+    ) -> Result<Output<'a, Option<T>>, GameError> {
         Ok(match self.parser.parse(input, names) {
-            Ok(output) => {
-                Output {
-                    value: Some(output.value),
-                    consumed: output.consumed,
-                    remaining: output.remaining,
-                }
-            }
-            Err(_) => {
-                Output {
-                    value: None,
-                    consumed: &input[..0],
-                    remaining: input,
-                }
-            }
+            Ok(output) => Output {
+                value: Some(output.value),
+                consumed: output.consumed,
+                remaining: output.remaining,
+            },
+            Err(_) => Output {
+                value: None,
+                consumed: &input[..0],
+                remaining: input,
+            },
         })
     }
 
@@ -322,7 +334,7 @@ impl<T, TP> Parser<Vec<T>> for Many<T, TP>
 where
     TP: Parser<T>,
 {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, Vec<T>>> {
+    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, Vec<T>>, GameError> {
         let mut parsed: Vec<T> = vec![];
         if let Some(max) = self.max {
             if max == 0 || max < self.min.unwrap_or(0) {
@@ -350,7 +362,9 @@ where
                 first = false;
             }
             match self.parser.parse(&input[inner_offset..], names) {
-                Ok(Output { value, consumed, .. }) => {
+                Ok(Output {
+                    value, consumed, ..
+                }) => {
                     parsed.push(value);
                     offset = inner_offset + consumed.len();
                     if let Some(max) = self.max {
@@ -366,11 +380,15 @@ where
         }
         if let Some(min) = self.min {
             if parsed.len() < min {
-                bail!(
-                    "expected at least {} items but could only parse {}",
-                    min,
-                    parsed.len()
-                );
+                return Err(GameError::Parse {
+                    message: Some(format!(
+                        "expected at least {} items but could only parse {}",
+                        min,
+                        parsed.len()
+                    )),
+                    expected: vec![],
+                    offset: 0,
+                });
             }
         }
         Ok(Output {
@@ -406,10 +424,14 @@ where
 struct Space {}
 
 impl Parser<String> for Space {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, String>> {
+    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, String>, GameError> {
         let consumed = input.chars().take_while(|c| c.is_whitespace()).count();
         if consumed == 0 {
-            bail!(ErrorKind::Parse(None, self.expected(names), 0));
+            return Err(GameError::Parse {
+                message: None,
+                expected: self.expected(names),
+                offset: 0,
+            });
         }
         Ok(Output {
             value: input[..consumed].to_owned(),
@@ -442,15 +464,15 @@ impl<T, TP: Parser<T> + ?Sized> OneOf<T, TP> {
 }
 
 impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>> {
-        let mut errors: Vec<Error> = vec![];
+    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>, GameError> {
+        let mut errors: Vec<GameError> = vec![];
         let mut error_consumed: usize = 0;
         for p in &self.parsers {
             match p.parse(input, names) {
                 Ok(output) => return Ok(output),
                 Err(e) => {
                     let mut e_consumed = 0;
-                    if let Error(ErrorKind::Parse(_, _, offset), _) = e {
+                    if let GameError::Parse { offset, .. } = e {
                         e_consumed = offset;
                     }
                     if e_consumed > error_consumed {
@@ -465,27 +487,29 @@ impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
 
         let error_messages = &errors
             .iter()
-            .filter_map(|e| if let Error(ErrorKind::Parse(ref m, ..), ..) = *e {
-                m.to_owned()
-            } else {
-                None
+            .filter_map(|e| {
+                if let GameError::Parse { ref message, .. } = *e {
+                    message.to_owned()
+                } else {
+                    None
+                }
             })
             .collect::<Vec<String>>();
-        bail!(ErrorKind::Parse(
-            if error_messages.is_empty() {
+        Err(GameError::Parse {
+            message: if error_messages.is_empty() {
                 None
             } else {
                 Some(comma_list_or(error_messages))
             },
-            errors
+            expected: errors
                 .iter()
                 .flat_map(|e| match *e {
-                    Error(ErrorKind::Parse(_, ref expected, _), _) => expected.clone(),
+                    GameError::Parse { ref expected, .. } => expected.clone(),
                     _ => vec![],
                 })
                 .collect(),
-            error_consumed,
-        ));
+            offset: error_consumed,
+        })
     }
 
     fn expected(&self, names: &[String]) -> Vec<String> {
@@ -565,7 +589,7 @@ impl<T> Parser<T> for Enum<T>
 where
     T: ToString + Clone,
 {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>> {
+    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>, GameError> {
         let input_lower = input.to_lowercase();
         let mut matched: Vec<&T> = vec![];
         let mut match_len: usize = 0;
@@ -600,27 +624,27 @@ where
             }
         }
         match matched.len() {
-            1 => {
-                Ok(Output {
-                    value: matched[0].to_owned(),
-                    consumed: &input[..match_len],
-                    remaining: &input[match_len..],
-                })
-            }
-            0 => bail!(ErrorKind::Parse(None, self.expected(names), 0)),
-            _ => {
-                bail!(ErrorKind::Parse(
-                    Some(format!(
-                        "matched {}, more input is required to uniquely match one",
-                        comma_list_and(&matched
-                            .iter()
-                            .map(|m| m.to_string())
-                            .collect::<Vec<String>>()),
-                    )),
-                    self.expected(names),
-                    0,
-                ))
-            }
+            1 => Ok(Output {
+                value: matched[0].to_owned(),
+                consumed: &input[..match_len],
+                remaining: &input[match_len..],
+            }),
+            0 => Err(GameError::Parse {
+                message: None,
+                expected: self.expected(names),
+                offset: 0,
+            }),
+            _ => Err(GameError::Parse {
+                message: Some(format!(
+                    "matched {}, more input is required to uniquely match one",
+                    comma_list_and(&matched
+                        .iter()
+                        .map(|m| m.to_string())
+                        .collect::<Vec<String>>()),
+                )),
+                expected: self.expected(names),
+                offset: 0,
+            }),
         }
     }
 
@@ -669,7 +693,7 @@ impl<T, TP: Parser<T>> Doc<T, TP> {
 }
 
 impl<T, TP: Parser<T>> Parser<T> for Doc<T, TP> {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>> {
+    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>, GameError> {
         self.parser.parse(input, names)
     }
 
@@ -716,7 +740,7 @@ impl Player {
 }
 
 impl Parser<usize> for Player {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, usize>> {
+    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, usize>, GameError> {
         Map::new(Enum::partial(self.player_nums(names)), |pn| pn.num).parse(input, names)
     }
 
@@ -744,7 +768,7 @@ impl<T, TP: Parser<T>> AfterSpace<T, TP> {
 }
 
 impl<T, TP: Parser<T>> Parser<T> for AfterSpace<T, TP> {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>> {
+    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>, GameError> {
         let pair = chain_2(&Space {}, &self.parser, input, names)?;
         Ok(Output {
             value: pair.value.1,
@@ -772,9 +796,9 @@ mod tests {
             min: None,
             max: None,
         };
-        parser.parse("fart", &[]).expect_err(
-            "expected 'fart' to produce an error",
-        );
+        parser
+            .parse("fart", &[])
+            .expect_err("expected 'fart' to produce an error");
         assert_eq!(
             Output {
                 value: 10,
@@ -789,9 +813,9 @@ mod tests {
                 consumed: "10",
                 remaining: " with bacon and cheese",
             },
-            parser.parse("10 with bacon and cheese", &[]).expect(
-                "expected '10 with bacon and cheese' to parse",
-            )
+            parser
+                .parse("10 with bacon and cheese", &[],)
+                .expect("expected '10 with bacon and cheese' to parse",)
         );
         assert_eq!(
             Output {
@@ -799,21 +823,21 @@ mod tests {
                 consumed: "-10",
                 remaining: " with bacon and cheese",
             },
-            parser.parse("-10 with bacon and cheese", &[]).expect(
-                "expected '-10 with bacon and cheese' to parse",
-            )
+            parser
+                .parse("-10 with bacon and cheese", &[],)
+                .expect("expected '-10 with bacon and cheese' to parse",)
         );
-        parser.parse("-", &[]).expect_err(
-            "expected '-' to produce an error",
-        );
+        parser
+            .parse("-", &[])
+            .expect_err("expected '-' to produce an error");
         parser.min = Some(-5);
-        parser.parse("-6", &[]).expect_err(
-            "expected '-6' to produce an error when minimum is set",
-        );
+        parser
+            .parse("-6", &[])
+            .expect_err("expected '-6' to produce an error when minimum is set");
         parser.max = Some(100);
-        parser.parse("101", &[]).expect_err(
-            "expected '101' to produce an error when maximum is set",
-        );
+        parser
+            .parse("101", &[])
+            .expect_err("expected '101' to produce an error when maximum is set");
     }
 
     #[test]
@@ -831,9 +855,9 @@ mod tests {
                 consumed: "00123",
                 remaining: "bacon",
             },
-            parser.parse("00123bacon", &[]).expect(
-                "expected '00123bacon' to parse",
-            )
+            parser
+                .parse("00123bacon", &[],)
+                .expect("expected '00123bacon' to parse",)
         )
     }
 
@@ -849,9 +873,9 @@ mod tests {
                 consumed: "00123",
                 remaining: "bacon",
             },
-            parser.parse("00123bacon", &[]).expect(
-                "expected '00123bacon' to parse",
-            )
+            parser
+                .parse("00123bacon", &[],)
+                .expect("expected '00123bacon' to parse",)
         );
         assert_eq!(
             Output {
@@ -859,9 +883,9 @@ mod tests {
                 consumed: "",
                 remaining: "bacon",
             },
-            parser.parse("bacon", &[]).expect(
-                "expected 'bacon' to parse",
-            )
+            parser
+                .parse("bacon", &[],)
+                .expect("expected 'bacon' to parse",)
         );
     }
 
@@ -874,13 +898,13 @@ mod tests {
                 consumed: "BlAh",
                 remaining: "bacon",
             },
-            parser.parse("BlAhbacon", &[]).expect(
-                "expected 'BlAhbacon' to parse",
-            )
+            parser
+                .parse("BlAhbacon", &[],)
+                .expect("expected 'BlAhbacon' to parse",)
         );
-        parser.parse("ClAhbacon", &[]).expect_err(
-            "expected 'ClAhbacon' to produce an error",
-        );
+        parser
+            .parse("ClAhbacon", &[])
+            .expect_err("expected 'ClAhbacon' to produce an error");
     }
 
     #[test]
@@ -895,14 +919,14 @@ mod tests {
                 consumed: "3, 4, 5",
                 remaining: "",
             },
-            parser.parse("3, 4, 5", &[]).expect(
-                "expected '3, 4, 5' to parse",
-            )
+            parser
+                .parse("3, 4, 5", &[],)
+                .expect("expected '3, 4, 5' to parse",)
         );
         parser.min = Some(5);
-        parser.parse("3, 4, 5", &[]).expect_err(
-            "expected '3, 4, 5' with a min of 5 to produce an error",
-        );
+        parser
+            .parse("3, 4, 5", &[])
+            .expect_err("expected '3, 4, 5' with a min of 5 to produce an error");
         parser.max = Some(5);
         assert_eq!(
             Output {
@@ -910,9 +934,9 @@ mod tests {
                 consumed: "3, 4, 5, 6, 7",
                 remaining: ", 8, 9, 10",
             },
-            parser.parse("3, 4, 5, 6, 7, 8, 9, 10", &[]).expect(
-                "expected '3, 4, 5, 6, 7, 8, 9, 10' to parse",
-            )
+            parser
+                .parse("3, 4, 5, 6, 7, 8, 9, 10", &[],)
+                .expect("expected '3, 4, 5, 6, 7, 8, 9, 10' to parse",)
         );
         parser.min = None;
         parser.delim = ";".to_string();
@@ -922,19 +946,18 @@ mod tests {
                 consumed: "3; 4; 5",
                 remaining: "",
             },
-            parser.parse("3; 4; 5", &[]).expect(
-                "expected '3; 4; 5' to parse",
-            )
+            parser
+                .parse("3; 4; 5", &[],)
+                .expect("expected '3; 4; 5' to parse",)
         );
     }
 
     #[test]
     fn test_one_of_works() {
-        let parsers: Vec<Box<Parser<String>>> =
-            vec![
-                Box::new(Token::new("blah")),
-                Box::new(Map::new(Many::any(Token::new("fart")), |v| v.join(" "))),
-            ];
+        let parsers: Vec<Box<Parser<String>>> = vec![
+            Box::new(Token::new("blah")),
+            Box::new(Map::new(Many::any(Token::new("fart")), |v| v.join(" "))),
+        ];
         let parser = OneOf::new(parsers);
         assert_eq!(
             Output {
@@ -950,9 +973,9 @@ mod tests {
                 consumed: "fart, fart, fart",
                 remaining: "",
             },
-            parser.parse("fart, fart, fart", &[]).expect(
-                "expected 'fart, fart, fart' to parse",
-            )
+            parser
+                .parse("fart, fart, fart", &[],)
+                .expect("expected 'fart, fart, fart' to parse",)
         );
     }
 
@@ -967,12 +990,12 @@ mod tests {
             },
             parser.parse("c", &[]).expect("expected 'c' to parse")
         );
-        parser.parse("hat", &[]).expect_err(
-            "expected 'hat' to produce error",
-        );
-        parser.parse("far", &[]).expect_err(
-            "expected 'far' to produce error",
-        );
+        parser
+            .parse("hat", &[])
+            .expect_err("expected 'hat' to produce error");
+        parser
+            .parse("far", &[])
+            .expect_err("expected 'far' to produce error");
         assert_eq!(
             Output {
                 value: "fart",
@@ -987,9 +1010,9 @@ mod tests {
                 consumed: "farty",
                 remaining: "",
             },
-            parser.parse("farty", &[]).expect(
-                "expected 'farty' to parse",
-            )
+            parser
+                .parse("farty", &[],)
+                .expect("expected 'farty' to parse",)
         );
         assert_eq!(
             Output {
@@ -997,27 +1020,27 @@ mod tests {
                 consumed: "DoG",
                 remaining: "log",
             },
-            parser.parse("DoGlog", &[]).expect(
-                "expected 'DoGlog' to parse",
-            )
+            parser
+                .parse("DoGlog", &[],)
+                .expect("expected 'DoGlog' to parse",)
         );
     }
 
     #[test]
     fn after_space_parser_works() {
         let parser = AfterSpace::new(Token::new("blah"));
-        parser.parse("blah", &[]).expect_err(
-            "expected 'blah' to produce error",
-        );
+        parser
+            .parse("blah", &[])
+            .expect_err("expected 'blah' to produce error");
         assert_eq!(
             Output {
                 value: "blah".to_string(),
                 consumed: " BlAh",
                 remaining: "bacon",
             },
-            parser.parse(" BlAhbacon", &[]).expect(
-                "expected ' BlAhbacon' to parse",
-            )
+            parser
+                .parse(" BlAhbacon", &[],)
+                .expect("expected ' BlAhbacon' to parse",)
         );
     }
 }

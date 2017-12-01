@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use command::parser::{Parser, Output};
+use command::parser::{Output, Parser};
 use command::Spec as CommandSpec;
 use errors::*;
 
@@ -9,7 +9,7 @@ pub fn chain_2<'a, A, B, PA, PB>(
     b: &PB,
     input: &'a str,
     names: &[String],
-) -> Result<Output<'a, (A, B)>>
+) -> Result<Output<'a, (A, B)>, GameError>
 where
     PA: Parser<A>,
     PB: Parser<B>,
@@ -22,7 +22,6 @@ where
         consumed: &input[..consumed],
         remaining: &input[consumed..],
     })
-
 }
 
 pub struct Chain2<A, B, PA, PB>
@@ -56,7 +55,7 @@ where
     PA: Parser<A>,
     PB: Parser<B>,
 {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, (A, B)>> {
+    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, (A, B)>, GameError> {
         chain_2(&self.a, &self.b, input, names)
     }
 
@@ -107,7 +106,11 @@ where
     PB: Parser<B>,
     PC: Parser<C>,
 {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, (A, B, C)>> {
+    fn parse<'a>(
+        &self,
+        input: &'a str,
+        names: &[String],
+    ) -> Result<Output<'a, (A, B, C)>, GameError> {
         let head = self.a.parse(input, names)?;
         let tail = chain_2(&self.b, &self.c, head.remaining, names)?;
         let consumed = head.consumed.len() + tail.consumed.len();
@@ -172,7 +175,11 @@ where
     PC: Parser<C>,
     PD: Parser<D>,
 {
-    fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, (A, B, C, D)>> {
+    fn parse<'a>(
+        &self,
+        input: &'a str,
+        names: &[String],
+    ) -> Result<Output<'a, (A, B, C, D)>, GameError> {
         let head = chain_2(&self.a, &self.b, input, names)?;
         let tail = chain_2(&self.c, &self.d, head.remaining, names)?;
         let consumed = head.consumed.len() + tail.consumed.len();
@@ -209,7 +216,9 @@ mod tests {
                 min: None,
                 max: None,
             },
-            Token { token: "egg".to_string() },
+            Token {
+                token: "egg".to_string(),
+            },
         );
         assert_eq!(
             Output {
@@ -217,9 +226,9 @@ mod tests {
                 consumed: "123egg",
                 remaining: "  chairs",
             },
-            parser.parse("123egg  chairs", &[]).expect(
-                "expected '123egg  chairs' to parse",
-            )
+            parser
+                .parse("123egg  chairs", &[],)
+                .expect("expected '123egg  chairs' to parse",)
         )
     }
 }

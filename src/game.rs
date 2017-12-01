@@ -8,7 +8,7 @@ use std::cmp::Ordering;
 
 use game_log::Log;
 use command;
-use errors::*;
+use errors::GameError;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Stat {
@@ -41,7 +41,7 @@ pub trait Gamer: Sized {
     type PubState: Serialize + DeserializeOwned + Renderer;
     type PlayerState: Serialize + DeserializeOwned + Renderer;
 
-    fn new(players: usize) -> Result<(Self, Vec<Log>)>;
+    fn new(players: usize) -> Result<(Self, Vec<Log>), GameError>;
     fn pub_state(&self) -> Self::PubState;
     fn player_state(&self, player: usize) -> Self::PlayerState;
     fn command(
@@ -49,7 +49,7 @@ pub trait Gamer: Sized {
         player: usize,
         input: &str,
         players: &[String],
-    ) -> Result<CommandResponse>;
+    ) -> Result<CommandResponse, GameError>;
     fn status(&self) -> Status;
     fn command_spec(&self, player: usize) -> Option<command::Spec>;
     fn player_count(&self) -> usize;
@@ -90,18 +90,18 @@ pub trait Gamer: Sized {
         }
     }
 
-    fn assert_not_finished(&self) -> Result<()> {
+    fn assert_not_finished(&self) -> Result<(), GameError> {
         if self.is_finished() {
-            Err(ErrorKind::Finished.into())
+            Err(GameError::Finished)
         } else {
             Ok(())
         }
     }
 
-    fn assert_player_turn(&self, player: usize) -> Result<()> {
+    fn assert_player_turn(&self, player: usize) -> Result<(), GameError> {
         match self.whose_turn().iter().position(|&p| p == player) {
             Some(_) => Ok(()),
-            None => Err(ErrorKind::NotYourTurn.into()),
+            None => Err(GameError::NotYourTurn),
         }
     }
 
@@ -125,8 +125,7 @@ fn cmp_fallback(a: &[i32], b: &[i32]) -> Ordering {
         return Ordering::Greater;
     }
     match a[0].partial_cmp(&b[0]) {
-        Some(Ordering::Equal) |
-        None => cmp_fallback(&a[1..], &b[1..]),
+        Some(Ordering::Equal) | None => cmp_fallback(&a[1..], &b[1..]),
         Some(ord) => ord,
     }
 }
