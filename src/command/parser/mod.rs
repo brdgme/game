@@ -7,7 +7,7 @@ use std::fmt::Display;
 pub mod chain;
 
 use errors::GameError;
-use command::Spec as CommandSpec;
+use command::{Spec as CommandSpec, SpecStore};
 pub use self::chain::*;
 
 const MANY_DELIM: &str = ",";
@@ -22,7 +22,7 @@ pub struct Output<'a, T> {
 pub trait Parser<T> {
     fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, T>, GameError>;
     fn expected(&self, names: &[String]) -> Vec<String>;
-    fn to_spec(&self) -> CommandSpec;
+    fn to_spec(&self) -> SpecStore;
 }
 
 pub struct Token {
@@ -61,8 +61,8 @@ impl Parser<String> for Token {
         vec![self.token.to_owned()]
     }
 
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Token(self.token.to_owned())
+    fn to_spec(&self) -> SpecStore {
+        SpecStore::from_spec(CommandSpec::Token(self.token.to_owned()))
     }
 }
 
@@ -135,12 +135,10 @@ impl Parser<i32> for Int {
             });
         }
         let consumed = &input[..consumed_count];
-        let value: i32 = consumed.parse().map_err(|_| {
-            GameError::Parse {
-                message: Some(format!("failed to parse '{}'", consumed)),
-                expected: self.expected(names),
-                offset: 0,
-            }
+        let value: i32 = consumed.parse().map_err(|_| GameError::Parse {
+            message: Some(format!("failed to parse '{}'", consumed)),
+            expected: self.expected(names),
+            offset: 0,
         })?;
         if let Some(min) = self.min {
             if value < min {
@@ -171,11 +169,11 @@ impl Parser<i32> for Int {
         vec![self.expected_output()]
     }
 
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Int {
+    fn to_spec(&self) -> SpecStore {
+        SpecStore::from_spec(CommandSpec::Int {
             min: self.min,
             max: self.max,
-        }
+        })
     }
 }
 
@@ -223,7 +221,7 @@ where
         self.parser.expected(names)
     }
 
-    fn to_spec(&self) -> CommandSpec {
+    fn to_spec(&self) -> SpecStore {
         self.parser.to_spec()
     }
 }
@@ -279,8 +277,11 @@ where
             .collect()
     }
 
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Opt(Box::new(self.parser.to_spec()))
+    fn to_spec(&self) -> SpecStore {
+        let child_spec = self.parser.to_spec();
+        let mut store = SpecStore::from_spec(CommandSpec::Opt(child_spec.entry));
+        store.extend(child_spec);
+        store
     }
 }
 
@@ -411,13 +412,16 @@ where
             .collect()
     }
 
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Many {
-            spec: Box::new(self.parser.to_spec()),
+    fn to_spec(&self) -> SpecStore {
+        let child_spec = self.parser.to_spec();
+        let mut store = SpecStore::from_spec(CommandSpec::Many {
+            spec: child_spec.entry,
             min: self.min,
             max: self.max,
             delim: self.delim.to_owned(),
-        }
+        });
+        store.extend(child_spec);
+        store
     }
 }
 
@@ -444,8 +448,8 @@ impl Parser<String> for Space {
         vec!["whitespace".to_string()]
     }
 
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Space
+    fn to_spec(&self) -> SpecStore {
+        SpecStore::from_spec(CommandSpec::Space)
     }
 }
 
@@ -519,8 +523,18 @@ impl<T, TP: Parser<T> + ?Sized> Parser<T> for OneOf<T, TP> {
             .collect()
     }
 
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::OneOf(self.parsers.iter().map(|p| p.to_spec()).collect())
+    fn to_spec(&self) -> SpecStore {
+        let mut child_stores: Vec<SpecStore> = vec![];
+        for p in &self.parsers {
+            child_stores.push(p.to_spec());
+        }
+        let mut store = SpecStore::from_spec(CommandSpec::OneOf(
+            child_stores.iter().map(|cs| cs.entry).collect(),
+        ));
+        for cs in child_stores {
+            store.extend(cs);
+        }
+        store
     }
 }
 
@@ -657,11 +671,11 @@ where
         values
     }
 
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Enum {
+    fn to_spec(&self) -> SpecStore {
+        SpecStore::from_spec(CommandSpec::Enum {
             values: self.values.iter().cloned().map(|v| v.to_string()).collect(),
             exact: self.exact,
-        }
+        })
     }
 }
 
@@ -701,12 +715,15 @@ impl<T, TP: Parser<T>> Parser<T> for Doc<T, TP> {
         self.parser.expected(names)
     }
 
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Doc {
+    fn to_spec(&self) -> SpecStore {
+        let child_store = self.parser.to_spec();
+        let mut store = SpecStore::from_spec(CommandSpec::Doc {
             name: self.name.to_owned(),
             desc: self.desc.to_owned(),
-            spec: Box::new(self.parser.to_spec()),
-        }
+            spec: child_store.entry,
+        });
+        store.extend(child_store);
+        store
     }
 }
 
@@ -729,11 +746,9 @@ impl Player {
         names
             .iter()
             .enumerate()
-            .map(|(p, name)| {
-                PlayerNum {
-                    num: p,
-                    name: name.to_string(),
-                }
+            .map(|(p, name)| PlayerNum {
+                num: p,
+                name: name.to_string(),
             })
             .collect::<Vec<PlayerNum>>()
     }
@@ -741,15 +756,17 @@ impl Player {
 
 impl Parser<usize> for Player {
     fn parse<'a>(&self, input: &'a str, names: &[String]) -> Result<Output<'a, usize>, GameError> {
-        Map::new(Enum::partial(self.player_nums(names)), |pn| pn.num).parse(input, names)
+        Map::new(Enum::partial(self.player_nums(names)), |pn| {
+            pn.num
+        }).parse(input, names)
     }
 
     fn expected(&self, names: &[String]) -> Vec<String> {
         Enum::partial(self.player_nums(names)).expected(names)
     }
 
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Player
+    fn to_spec(&self) -> SpecStore {
+        SpecStore::from_spec(CommandSpec::Player)
     }
 }
 
@@ -781,14 +798,46 @@ impl<T, TP: Parser<T>> Parser<T> for AfterSpace<T, TP> {
         self.parser.expected(names)
     }
 
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Chain(vec![CommandSpec::Space, self.parser.to_spec()])
+    fn to_spec(&self) -> SpecStore {
+        let child_store = self.parser.to_spec();
+        let space_store = SpecStore::from_spec(CommandSpec::Space);
+        let mut store = SpecStore::from_spec(CommandSpec::Chain(vec![
+            space_store.entry,
+            child_store.entry,
+        ]));
+        store.extend(space_store);
+        store.extend(child_store);
+        store
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use command::SpecID;
+
+    fn assert_spec_store_valid(store: &SpecStore) {
+        assert_spec_store_spec_valid(store, &store.entry);
+    }
+
+    fn assert_spec_store_spec_valid(store: &SpecStore, id: &SpecID) {
+        match store.specs.get(id) {
+            None => assert!(false, "referenced spec missing from store"),
+            Some(spec) => match spec {
+                &CommandSpec::Int { .. }
+                | &CommandSpec::Token(_)
+                | &CommandSpec::Enum { .. }
+                | &CommandSpec::Player
+                | &CommandSpec::Space => (),
+                &CommandSpec::OneOf(ref specs) | &CommandSpec::Chain(ref specs) => for s in specs {
+                    assert_spec_store_spec_valid(store, s);
+                },
+                &CommandSpec::Many { spec, .. }
+                | &CommandSpec::Opt(spec)
+                | &CommandSpec::Doc { spec, .. } => assert_spec_store_spec_valid(store, &spec),
+            },
+        };
+    }
 
     #[test]
     fn int_parser_works() {
@@ -838,6 +887,7 @@ mod tests {
         parser
             .parse("101", &[])
             .expect_err("expected '101' to produce an error when maximum is set");
+        assert_spec_store_valid(&parser.to_spec());
     }
 
     #[test]
@@ -858,7 +908,8 @@ mod tests {
             parser
                 .parse("00123bacon", &[],)
                 .expect("expected '00123bacon' to parse",)
-        )
+        );
+        assert_spec_store_valid(&parser.to_spec());
     }
 
     #[test]
@@ -887,6 +938,7 @@ mod tests {
                 .parse("bacon", &[],)
                 .expect("expected 'bacon' to parse",)
         );
+        assert_spec_store_valid(&parser.to_spec());
     }
 
     #[test]
@@ -905,6 +957,7 @@ mod tests {
         parser
             .parse("ClAhbacon", &[])
             .expect_err("expected 'ClAhbacon' to produce an error");
+        assert_spec_store_valid(&parser.to_spec());
     }
 
     #[test]
@@ -950,13 +1003,16 @@ mod tests {
                 .parse("3; 4; 5", &[],)
                 .expect("expected '3; 4; 5' to parse",)
         );
+        assert_spec_store_valid(&parser.to_spec());
     }
 
     #[test]
     fn test_one_of_works() {
         let parsers: Vec<Box<Parser<String>>> = vec![
             Box::new(Token::new("blah")),
-            Box::new(Map::new(Many::any(Token::new("fart")), |v| v.join(" "))),
+            Box::new(Map::new(Many::any(Token::new("fart")), |v| {
+                v.join(" ")
+            })),
         ];
         let parser = OneOf::new(parsers);
         assert_eq!(
@@ -977,6 +1033,7 @@ mod tests {
                 .parse("fart, fart, fart", &[],)
                 .expect("expected 'fart, fart, fart' to parse",)
         );
+        assert_spec_store_valid(&parser.to_spec());
     }
 
     #[test]
@@ -1024,6 +1081,7 @@ mod tests {
                 .parse("DoGlog", &[],)
                 .expect("expected 'DoGlog' to parse",)
         );
+        assert_spec_store_valid(&parser.to_spec());
     }
 
     #[test]
@@ -1042,5 +1100,6 @@ mod tests {
                 .parse(" BlAhbacon", &[],)
                 .expect("expected ' BlAhbacon' to parse",)
         );
+        assert_spec_store_valid(&parser.to_spec());
     }
 }

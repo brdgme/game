@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use command::parser::{Output, Parser};
-use command::Spec as CommandSpec;
+use command::{Spec as CommandSpec, SpecStore};
 use errors::*;
 
 pub fn chain_2<'a, A, B, PA, PB>(
@@ -50,6 +50,15 @@ where
     }
 }
 
+fn chain_spec(specs: Vec<SpecStore>) -> SpecStore {
+    let mut store =
+        SpecStore::from_spec(CommandSpec::Chain(specs.iter().map(|s| s.entry).collect()));
+    for s in specs {
+        store.extend(s)
+    }
+    store
+}
+
 impl<A, B, PA, PB> Parser<(A, B)> for Chain2<A, B, PA, PB>
 where
     PA: Parser<A>,
@@ -63,8 +72,8 @@ where
         self.a.expected(names)
     }
 
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Chain(vec![self.a.to_spec(), self.b.to_spec()])
+    fn to_spec(&self) -> SpecStore {
+        chain_spec(vec![self.a.to_spec(), self.b.to_spec()])
     }
 }
 
@@ -125,8 +134,8 @@ where
         self.a.expected(names)
     }
 
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Chain(vec![self.a.to_spec(), self.b.to_spec(), self.c.to_spec()])
+    fn to_spec(&self) -> SpecStore {
+        chain_spec(vec![self.a.to_spec(), self.b.to_spec(), self.c.to_spec()])
     }
 }
 
@@ -194,8 +203,8 @@ where
         self.a.expected(names)
     }
 
-    fn to_spec(&self) -> CommandSpec {
-        CommandSpec::Chain(vec![
+    fn to_spec(&self) -> SpecStore {
+        chain_spec(vec![
             self.a.to_spec(),
             self.b.to_spec(),
             self.c.to_spec(),
