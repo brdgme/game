@@ -1,14 +1,14 @@
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 use brdgme_markup::Node;
 
-use std::collections::HashMap;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
-use game_log::Log;
 use command;
 use errors::GameError;
+use game_log::Log;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Stat {
@@ -28,6 +28,15 @@ pub enum Status {
         placings: Vec<usize>,
         stats: Vec<HashMap<String, Stat>>,
     },
+}
+
+impl Status {
+    pub fn is_finished(&self) -> bool {
+        match *self {
+            Status::Active { .. } => false,
+            Status::Finished { .. } => true,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
