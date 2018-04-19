@@ -9,15 +9,33 @@ pub enum GameError {
         max: usize,
         given: usize,
     },
-    InvalidInput { message: String },
+    InvalidInput {
+        message: String,
+    },
     NotYourTurn,
     Finished,
-    Internal { message: String },
+    Internal {
+        message: String,
+    },
     Parse {
         message: Option<String>,
         expected: Vec<String>,
         offset: usize,
     },
+}
+
+impl GameError {
+    pub fn invalid_input<I: Into<String>>(message: I) -> GameError {
+        GameError::InvalidInput {
+            message: message.into(),
+        }
+    }
+
+    pub fn internal<I: Into<String>>(message: I) -> GameError {
+        GameError::Internal {
+            message: message.into(),
+        }
+    }
 }
 
 impl fmt::Display for GameError {
