@@ -1,11 +1,13 @@
 use rand::{self, Rng};
 use chrono;
+use serde_derive::{Serialize, Deserialize};
+use ::log::{log, trace};
 
 use std::io::Write;
 
-use game::Gamer;
-use command::Spec as CommandSpec;
-use errors::GameError;
+use crate::game::Gamer;
+use crate::command::Spec as CommandSpec;
+use crate::errors::GameError;
 
 const BOT_COMMAND_QUALITY_DEFAULT: u8 = 128;
 

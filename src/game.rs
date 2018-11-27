@@ -1,14 +1,15 @@
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde_derive::{Serialize, Deserialize};
 
 use brdgme_markup::Node;
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-use command;
-use errors::GameError;
-use game_log::Log;
+use crate::command;
+use crate::errors::GameError;
+use crate::game_log::Log;
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub enum Stat {

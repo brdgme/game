@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
-use command::parser::{Output, Parser};
-use command::Spec as CommandSpec;
-use errors::*;
+use crate::command::parser::{Output, Parser};
+use crate::command::Spec as CommandSpec;
+use crate::errors::*;
 
 pub fn chain_2<'a, A, B, PA, PB>(
     a: &PA,
@@ -210,7 +210,7 @@ mod tests {
 
     #[test]
     fn chain2_parser_works() {
-        use command::parser::{Int, Token};
+        use crate::command::parser::{Int, Token};
         let parser = Chain2::new(
             Int {
                 min: None,

@@ -6,8 +6,8 @@ use std::fmt::Display;
 
 pub mod chain;
 
-use errors::GameError;
-use command::Spec as CommandSpec;
+use crate::errors::GameError;
+use crate::command::Spec as CommandSpec;
 pub use self::chain::*;
 
 const MANY_DELIM: &str = ",";

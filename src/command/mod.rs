@@ -1,6 +1,8 @@
 pub mod parser;
 pub mod doc;
 
+use serde_derive::{Serialize, Deserialize};
+
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub enum Spec {
     Int { min: Option<i32>, max: Option<i32> },

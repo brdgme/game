@@ -1,7 +1,7 @@
 use brdgme_markup::Node;
 use brdgme_color::GREY;
 
-use command::Spec;
+use crate::command::Spec;
 
 #[derive(Clone)]
 pub struct Opts {

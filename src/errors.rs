@@ -1,6 +1,8 @@
+use failure::Fail;
+
 use std::fmt;
 
-use command::parser::comma_list_or;
+use crate::command::parser::comma_list_or;
 
 #[derive(Debug, Fail)]
 pub enum GameError {

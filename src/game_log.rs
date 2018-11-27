@@ -1,4 +1,5 @@
 use chrono::{NaiveDateTime, Utc};
+use serde_derive::{Serialize, Deserialize};
 
 use brdgme_markup::Node;
 
